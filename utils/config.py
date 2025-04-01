@@ -10,7 +10,7 @@ MAP_HEIGHT = 100  # m, height of the map
 SIM_TIME = 15 * 1e6  # us, total simulation time
 NUMBER_OF_DRONES = 15  # number of drones in the network
 STATIC_CASE = 0  # whether to simulate a static network
-HETEROGENEOUS = 0  # heterogeneous network support (in terms of speed)
+HETEROGENEOUS = 0  # 是否支持异构网络（在速度方面），0表示不支持
 LOGGING_LEVEL = logging.INFO  # whether to print the detail information during simulation
 
 # ---------- hardware parameters of drone (rotary-wing) -----------#

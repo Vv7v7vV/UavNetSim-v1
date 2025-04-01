@@ -77,6 +77,13 @@ class SimulationVisualizer:
         self.interactive_fig = None
         self.interactive_slider = None
         self.frame_times = []
+
+        # # 新增部分，创建子图对象并在类中保存
+        # self.fig = plt.figure(figsize=(18, 6))
+        # self.ax_data = self.fig.add_subplot(121, projection='3d')
+        # self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        # 预排序通信事件
+        self.comm_events.sort(key=lambda x: x[4])
     
     def _setup_communication_tracking(self):
         """Setup tracking for communication events"""
@@ -165,8 +172,29 @@ class SimulationVisualizer:
         
         # Draw communication links
         display_window = self.vis_frame_interval / 1e6  # Convert to seconds
-        recent_comms = [e for e in self.comm_events 
-                      if current_time - display_window <= e[4] <= current_time]
+
+        ############################################################################
+        import bisect
+
+        # 提前将comm_events按时间排序（确保已排序）
+        # 创建一个时间戳列表，用于二分查找
+        event_timestamps = [e[4] for e in self.comm_events]
+
+        # 计算起始和结束时间
+        start_time = current_time - display_window
+        end_time = current_time
+
+        # 使用bisect查找起始和结束位置
+        left = bisect.bisect_left(event_timestamps, start_time)
+        right = bisect.bisect_right(event_timestamps, end_time)
+
+        # 提取时间窗口内的事件
+        recent_comms = self.comm_events[left:right]
+        ############################################################################
+
+
+        # recent_comms = [e for e in self.comm_events
+        #               if current_time - display_window <= e[4] <= current_time]
         
         # Get only the latest communication events for each src-dst pair
         latest_data_comms = self._get_latest_comms(recent_comms, "DATA")
@@ -240,20 +268,29 @@ class SimulationVisualizer:
             
             n_frames = len(self.frame_times)
             print(f"Generating {n_frames} frames with interval of {frame_interval_sec} seconds")
-            
+
+            # Create a new figure for this frame
+            fig = plt.figure(figsize=(18, 6))
+
             for i, time_point in enumerate(self.frame_times):
                 print(f"Generating frame {i+1}/{n_frames}", end="\r")
                 
-                # Create a new figure for this frame
-                fig = plt.figure(figsize=(18, 6))
-                
+                # # Create a new figure for this frame
+                # fig = plt.figure(figsize=(18, 6))
+
+
+                # Clear previous plots if any
+                plt.clf()
+
+
                 # Draw visualization elements
                 self._draw_visualization_frame(fig, time_point)
                 
                 # Save the figure to a BytesIO buffer
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png', dpi=100)
-                plt.close(fig)
+
+                # plt.close(fig)
                 
                 # Reset buffer position and open image
                 buf.seek(0)

@@ -26,9 +26,6 @@ class Metrics:
         [2] Gulati M K, Kumar K. "Performance Comparison of Mobile Ad Hoc Network Routing Protocols," International
             Journal of Computer Networks & Communications. vol. 6, no. 2, pp. 127, 2014.
 
-    Author: Zihao Zhou, eezihaozhou@gmail.com
-    Created at: 2024/1/11
-    Updated at: 2025/2/24
     """
 
     def __init__(self, simulator):
