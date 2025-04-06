@@ -102,6 +102,11 @@ class SimulationVisualizer:
         # self.ax_ack = self.fig.add_subplot(122, projection='3d')
         # 预排序通信事件
         self.comm_events.sort(key=lambda x: x[4])
+
+        # 添加GUI模式下的绘图控制
+        self.gui_canvas = None
+        self.gui_mode = gui_mode
+
     
     def _setup_communication_tracking(self):
         """Setup tracking for communication events"""
@@ -378,22 +383,27 @@ class SimulationVisualizer:
         self.simulator.env.process(track_positions())
     
     def finalize(self):
-        """修改后的finalize方法"""
         if not self.gui_mode:
             print("Finalizing visualization...")
             self.create_animations()
             self.create_interactive_visualization()
-            print("Visualization complete. Output saved to:", self.output_dir)
         else:
-            # GUI模式下只更新最后一次绘制
-            self._draw_visualization_frame(self.simulator.env.now / 1e6)
+            # GUI模式仅更新当前状态
+            current_time = self.simulator.env.now / 1e6
+            self._draw_visualization_frame(current_time)
+            if self.gui_canvas:
+                self.gui_canvas.draw_idle()
+
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""
         if not self.timestamps:
             print("No timestamps available for interactive visualization")
             return
-        
+        # 添加主线程检查
+        if self.gui_mode:
+            return
+
         print("Creating interactive visualization...")
         
         # Make sure frame_times is populated
@@ -448,7 +458,7 @@ class SimulationVisualizer:
             fig.suptitle(f"UAV Network Simulation at t={int(current_time*1e6)}μs", fontsize=14)
             
             # Set axis properties for both subplots
-            for ax in [self.ax_data, self.ax_ack]:
+            for ax in [ax_data, ax_ack]:
                 ax.set_xlabel('X (m)')
                 ax.set_ylabel('Y (m)')
                 ax.set_zlabel('Z (m)')

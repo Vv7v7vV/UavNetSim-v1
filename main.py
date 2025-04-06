@@ -31,3 +31,4 @@ if __name__ == "__main__":
     
     # 完成可视化过程，保存最终的可视化结果（如图像或视频）。
     visualizer.finalize()
+

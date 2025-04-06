@@ -8,6 +8,9 @@ from simulator.simulator import Simulator
 from visualization.visualizer import SimulationVisualizer
 import matplotlib.pyplot as plt
 
+import matplotlib
+matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 class UavNetSimGUI:
     def __init__(self, master):
@@ -43,6 +46,10 @@ class UavNetSimGUI:
         self.ax_ack = self.fig.add_subplot(122, projection='3d')
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # 添加线程安全队列
+        self.plot_queue = []
+        self.master.after(100, self.process_plot_queue)
 
     def setup_controls(self):
         """初始化右侧控制按钮"""
@@ -80,11 +87,16 @@ class UavNetSimGUI:
 
     def setup_visualization(self):
         """初始化可视化区域"""
-        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.fig = plt.figure(figsize=(18, 6))
+        self.ax_data = self.fig.add_subplot(121, projection='3d')
+        self.ax_ack = self.fig.add_subplot(122, projection='3d')
+
+        # 使用TkAgg后端
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self.ax.set_title("Simulation Visualization")
-        self.ax.grid(True)
+
+        # 传递canvas引用给visualizer
+        self.visualizer.gui_canvas = self.canvas
 
     def start_simulation(self):
         """启动仿真线程"""
@@ -99,11 +111,12 @@ class UavNetSimGUI:
         try:
             # 初始化仿真环境
             env = simpy.Environment()
+            # 为每架无人机创建一个信道资源，capacity=1 表示信道一次只能被一个无人机使用。
             channel_states = {i: simpy.Resource(env, capacity=1) for i in range(config.NUMBER_OF_DRONES)}
-            self.sim = Simulator(seed=2025, env=env, channel_states=channel_states,
-                                 n_drones=config.NUMBER_OF_DRONES)
+            self.sim = Simulator(seed=2025, env=env, channel_states=channel_states, n_drones=config.NUMBER_OF_DRONES)
 
             # 配置可视化器
+            # 创建可视化器实例，设置仿真器、输出目录和可视化帧间隔（20000 微秒，即 0.02 秒）。
             self.visualizer = SimulationVisualizer(
                 self.sim,
                 output_dir=".",
@@ -113,11 +126,11 @@ class UavNetSimGUI:
                 gui_mode=True
             )
 
-            # 运行逻辑
             def simulation_process():
                 env.run(until=config.SIM_TIME)
-                self.visualizer.finalize()
-                self.canvas.draw()
+                # 将最终绘图任务加入队列
+                self.plot_queue.append(lambda: self.visualizer.finalize())
+                self.plot_queue.append(lambda: self.canvas.draw())
 
             Thread(target=simulation_process).start()
 
@@ -135,6 +148,13 @@ class UavNetSimGUI:
         """检查线程状态"""
         if self.sim_thread.is_alive():
             self.master.after(100, self.check_thread)
+
+    def process_plot_queue(self):
+        """主线程定期处理绘图队列"""
+        while self.plot_queue:
+            task = self.plot_queue.pop(0)
+            task()
+        self.master.after(100, self.process_plot_queue)
 
 
 if __name__ == "__main__":
