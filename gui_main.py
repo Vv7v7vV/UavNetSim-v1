@@ -96,7 +96,7 @@ class UavNetSimGUI:
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # 传递canvas引用给visualizer
-        self.visualizer.gui_canvas = self.canvas
+        # self.visualizer.gui_canvas = self.canvas
 
     def start_simulation(self):
         """启动仿真线程"""
@@ -113,12 +113,18 @@ class UavNetSimGUI:
             env = simpy.Environment()
             # 为每架无人机创建一个信道资源，capacity=1 表示信道一次只能被一个无人机使用。
             channel_states = {i: simpy.Resource(env, capacity=1) for i in range(config.NUMBER_OF_DRONES)}
-            self.sim = Simulator(seed=2025, env=env, channel_states=channel_states, n_drones=config.NUMBER_OF_DRONES)
-
+            self.sim = Simulator(
+                seed=2025,
+                env=env,
+                channel_states=channel_states,
+                n_drones=config.NUMBER_OF_DRONES,
+                gui_canvas=self.canvas  # 传递 Tkinter Canvas
+            )
             # 配置可视化器
             # 创建可视化器实例，设置仿真器、输出目录和可视化帧间隔（20000 微秒，即 0.02 秒）。
             self.visualizer = SimulationVisualizer(
                 self.sim,
+                gui_canvas=self.canvas,  # 传递Canvas引用
                 output_dir=".",
                 vis_frame_interval=20000,
                 fig=self.fig,
@@ -126,23 +132,22 @@ class UavNetSimGUI:
                 gui_mode=True
             )
 
+            # 传递 canvas 引用到 visualizer
+            self.visualizer.gui_canvas = self.canvas
+
             def simulation_process():
                 env.run(until=config.SIM_TIME)
-                # 将最终绘图任务加入队列
-                self.plot_queue.append(lambda: self.visualizer.finalize())
-                self.plot_queue.append(lambda: self.canvas.draw())
+                # 最终化处理
+                self.visualizer.finalize()
+                self.canvas.draw()
 
             Thread(target=simulation_process).start()
 
-            # 最终化处理
-            self.visualizer.finalize()
-            self.canvas.draw()
-
         except Exception as e:
             messagebox.showerror("Simulation Error", str(e))
-        finally:
-            self.run_btn.config(state=tk.NORMAL)
-            self.status_label.config(text="Completed")
+        # finally:
+        #     self.run_btn.config(state=tk.NORMAL)
+        #     self.status_label.config(text="Completed")
 
     def check_thread(self):
         """检查线程状态"""

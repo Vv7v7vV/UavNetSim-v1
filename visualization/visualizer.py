@@ -9,6 +9,8 @@ from matplotlib.widgets import Slider, Button, TextBox
 from utils import config
 import io
 import matplotlib.patheffects as path_effects
+from visualization.scatter import scatter_plot
+
 
 # Add 3D arrow class definition that handles arrows in 3D view
 class Arrow3D(FancyArrowPatch):
@@ -35,7 +37,7 @@ class SimulationVisualizer:
     Visualize UAV network simulation process, including movement trajectories and communication status
     """
     
-    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000, fig=None, ax=None, gui_mode=False):
+    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000, fig=None, ax=None, gui_mode=False, gui_canvas=None):
         """
         Initialize visualizer
         
@@ -51,6 +53,7 @@ class SimulationVisualizer:
         self.output_dir = output_dir
         self.vis_frame_interval = vis_frame_interval
         self.gui_mode = gui_mode  # 新增GUI模式标志
+        self.gui_canvas = gui_canvas  # 保存Canvas引用
 
         # 新增GUI集成参数
         if fig is None or ax is None:
@@ -147,7 +150,7 @@ class SimulationVisualizer:
         self.timestamps.append(current_time)
         
         for i, drone in enumerate(self.simulator.drones):
-            position = drone.coords  # This already contains (x, y, z) coordinates
+            position = drone.coords  # 这已经包含了（x, y, z）坐标
             self.drone_positions[i].append(position)
     
     def track_communication(self, src_id, dst_id, packet_id, packet_type="DATA"):
@@ -383,10 +386,12 @@ class SimulationVisualizer:
         self.simulator.env.process(track_positions())
     
     def finalize(self):
-        if not self.gui_mode:
-            print("Finalizing visualization...")
+        if self.gui_mode and self.gui_canvas:
+            # 在主线程中调用散点图
+            self.gui_canvas.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
             self.create_animations()
             self.create_interactive_visualization()
+            print("Finalizing visualization...")
         else:
             # GUI模式仅更新当前状态
             current_time = self.simulator.env.now / 1e6
@@ -394,6 +399,10 @@ class SimulationVisualizer:
             if self.gui_canvas:
                 self.gui_canvas.draw_idle()
 
+    def _safe_scatter_plot(self):
+        """线程安全的散点图绘制"""
+        from visualization.scatter import scatter_plot
+        scatter_plot(self.simulator, gui_canvas=self.gui_canvas)
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""

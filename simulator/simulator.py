@@ -1,4 +1,5 @@
 import random
+
 from phy.channel import Channel
 from entities.drone import Drone
 
@@ -25,14 +26,8 @@ class Simulator:
         drones：一个列表，包含所有无人机实例。
     """
 
-    def __init__(self,
-                 seed,
-                 env,
-                 channel_states,
-                 n_drones,
-                 total_simulation_time=config.SIM_TIME):
-
-
+    def __init__(self, seed, env, channel_states, n_drones, total_simulation_time=config.SIM_TIME, gui_canvas=None):
+        self.gui_canvas = gui_canvas  # 新增参数
         self.env = env
         self.seed = seed
         self.total_simulation_time = total_simulation_time  # total simulation time (ns)
@@ -63,7 +58,9 @@ class Simulator:
                           inbox=self.channel.create_inbox_for_receiver(i), simulator=self)
             self.drones.append(drone)
 
-        scatter_plot(self)
+        # scatter_plot(self)
+        # scatter_plot(simulator, gui_canvas=self.canvas)  # 通过主线程调用
+        scatter_plot(self, gui_canvas=self.gui_canvas)
 
         self.env.process(self.show_performance())
         self.env.process(self.show_time())
@@ -76,6 +73,7 @@ class Simulator:
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)
 
-        scatter_plot(self)
+        # scatter_plot(self)
+        scatter_plot(self, gui_canvas=self.gui_canvas)  # 通过主线程调用
 
         self.metrics.print_metrics()
