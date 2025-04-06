@@ -46,6 +46,7 @@ class Simulator:
         # NOTE: if distributed optimization is adopted, remember to comment this to speed up simulation
         # self.central_controller = CentralController(self)
 
+
         # 生成无人机的初始位置。
         start_position = start_coords.get_random_start_point_3d(seed)
 
