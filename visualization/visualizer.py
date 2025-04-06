@@ -35,7 +35,7 @@ class SimulationVisualizer:
     Visualize UAV network simulation process, including movement trajectories and communication status
     """
     
-    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000):
+    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000, fig=None, ax=None, gui_mode=False):
         """
         Initialize visualizer
         
@@ -43,9 +43,27 @@ class SimulationVisualizer:
             simulator: simulator instance
             output_dir: output directory
             vis_frame_interval: interval for visualization frames (microseconds)
+
+
         """
+
         self.simulator = simulator
         self.output_dir = output_dir
+        self.vis_frame_interval = vis_frame_interval
+        self.gui_mode = gui_mode  # 新增GUI模式标志
+
+        # 新增GUI集成参数
+        if fig is None or ax is None:
+            self.fig = plt.figure(figsize=(18, 6))
+            self.ax_data = self.fig.add_subplot(121, projection='3d')
+            self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        else:
+            self.fig = fig
+            self.ax_data = ax[0] if isinstance(ax, (list, tuple)) else ax
+            self.ax_ack = ax[1] if isinstance(ax, (list, tuple)) else ax
+
+        os.makedirs(output_dir, exist_ok=True)
+        self.drone_positions = {i: [] for i in range(self.simulator.n_drones)}
         
         # Store vis_frame_interval in microseconds
         self.vis_frame_interval = vis_frame_interval
@@ -143,6 +161,16 @@ class SimulationVisualizer:
             fig: matplotlib figure to draw on
             current_time: current simulation time (seconds)
         """
+        if self.gui_mode:  # GUI模式下的特殊处理
+            for ax in [self.ax_data, self.ax_ack]:
+                ax.clear()
+
+            self.fig.suptitle(f"UAV Network Simulation at t={int(current_time * 1e6)}μs", fontsize=14)
+        else:
+            self.fig = plt.figure(figsize=(18, 6))
+            self.ax_data = self.fig.add_subplot(121, projection='3d')
+            self.ax_ack = self.fig.add_subplot(122, projection='3d')
+
         fig.suptitle(f"UAV Network Simulation at t={int(current_time*1e6)}μs", fontsize=14)
         
         # Create left and right subplots for DATA and ACK only
@@ -154,7 +182,7 @@ class SimulationVisualizer:
         ax_ack.set_title("ACK Packets")
         
         # Set axis labels and limits for both subplots
-        for ax in [ax_data, ax_ack]:
+        for ax in [self.ax_data, self.ax_ack]:
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
@@ -212,6 +240,11 @@ class SimulationVisualizer:
         
         ack_legend = [Line2D([0], [0], color=self.comm_colors["ACK"], lw=2, label="ACK Packets")]
         ax_ack.legend(handles=ack_legend, loc='upper right')
+
+        if self.gui_mode:
+            self.fig.canvas.draw_idle()
+        else:
+            plt.show()
 
     def _get_latest_comms(self, comms, packet_type):
         """
@@ -345,18 +378,15 @@ class SimulationVisualizer:
         self.simulator.env.process(track_positions())
     
     def finalize(self):
-        """
-        Finalize visualization, generate frames and animations
-        """
-        print("Finalizing visualization...")
-        
-        # Create animation
-        self.create_animations()
-        
-        # Create interactive visualization
-        self.create_interactive_visualization()
-        
-        print("Visualization complete. Output saved to:", self.output_dir)
+        """修改后的finalize方法"""
+        if not self.gui_mode:
+            print("Finalizing visualization...")
+            self.create_animations()
+            self.create_interactive_visualization()
+            print("Visualization complete. Output saved to:", self.output_dir)
+        else:
+            # GUI模式下只更新最后一次绘制
+            self._draw_visualization_frame(self.simulator.env.now / 1e6)
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""
@@ -418,7 +448,7 @@ class SimulationVisualizer:
             fig.suptitle(f"UAV Network Simulation at t={int(current_time*1e6)}μs", fontsize=14)
             
             # Set axis properties for both subplots
-            for ax in [ax_data, ax_ack]:
+            for ax in [self.ax_data, self.ax_ack]:
                 ax.set_xlabel('X (m)')
                 ax.set_ylabel('Y (m)')
                 ax.set_zlabel('Z (m)')
@@ -485,24 +515,25 @@ class SimulationVisualizer:
                 print("Invalid time format. Please enter a number.")
             except Exception as e:
                 print(f"Error going to time: {e}")
-        
-        # Connect the update function to the slider
-        time_slider.on_changed(update)
-        
-        # Connect the goto function to the button
-        goto_button.on_clicked(goto_time)
-        
-        # Initial plot
-        update_plot(self.frame_times[0])
-        
-        # Save reference to interactive elements
-        self.interactive_fig = fig
-        self.interactive_slider = time_slider
-        
-        # Show the interactive visualization
-        plt.show()
-        
-        print("Interactive visualization created. Close the plot window to continue.")
+
+        if not self.gui_mode:  # 只在非GUI模式下创建交互式窗口
+            # Connect the update function to the slider
+            time_slider.on_changed(update)
+
+            # Connect the goto function to the button
+            goto_button.on_clicked(goto_time)
+
+            # Initial plot
+            update_plot(self.frame_times[0])
+
+            # Save reference to interactive elements
+            self.interactive_fig = fig
+            self.interactive_slider = time_slider
+
+            # Show the interactive visualization
+            plt.show()
+
+            print("Interactive visualization created. Close the plot window to continue.")
 
     def _get_drone_positions(self, current_time):
         """Get drone positions at a specific time"""

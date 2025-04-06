@@ -1,83 +1,143 @@
 import tkinter as tk
-from tkinter import ttk
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import ttk, messagebox
+from threading import Thread
 import simpy
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from utils import config
 from simulator.simulator import Simulator
 from visualization.visualizer import SimulationVisualizer
+import matplotlib.pyplot as plt
 
-class SimulationGUI:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("UavNetSim-v1 GUI")
-        self.root.geometry("1200x800")
 
-        # 创建主框架
-        self.main_frame = ttk.Frame(self.root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+class UavNetSimGUI:
+    def __init__(self, master):
+        self.master = master
+        master.title("UavNetSim-v1 Control Panel")
+        master.geometry("1400x800")
 
-        # 创建画布区域（左侧）
-        self.canvas_frame = ttk.Frame(self.main_frame)
-        self.canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # 主布局框架
+        self.main_frame = ttk.Frame(master)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 创建按钮区域（右侧）
-        self.button_frame = ttk.Frame(self.main_frame, width=200)
-        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
+        # 右侧控制面板
+        self.control_panel = ttk.Frame(self.main_frame, width=200)
+        self.control_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
 
-        # 初始化画布
-        self.fig, self.ax = plt.subplots()
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
+        # 可视化区域
+        self.vis_frame = ttk.Frame(self.main_frame)
+        self.vis_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 初始化控制按钮
+        self.setup_controls()
+
+        # 初始化可视化组件
+        self.setup_visualization()
+
+        # 仿真相关对象
+        self.sim = None
+        self.visualizer = None
+        self.sim_thread = None
+
+        self.fig = plt.figure(figsize=(18, 6))
+        self.ax_data = self.fig.add_subplot(121, projection='3d')
+        self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # 添加按钮
-        self.add_buttons()
+    def setup_controls(self):
+        """初始化右侧控制按钮"""
+        style = ttk.Style()
+        style.configure("Control.TButton", width=15, padding=6)
 
-    def add_buttons(self):
-        # 运行仿真按钮
-        run_button = ttk.Button(self.button_frame, text="运行仿真", command=self.run_simulation)
-        run_button.pack(fill=tk.X, pady=5)
+        # 运行按钮
+        self.run_btn = ttk.Button(
+            self.control_panel,
+            text="Start Simulation",
+            command=self.start_simulation,
+            style="Control.TButton"
+        )
+        self.run_btn.pack(pady=10, fill=tk.X)
 
-        # 其他按钮（暂时不指定效果）
-        button2 = ttk.Button(self.button_frame, text="按钮2", command=lambda: print("按钮2被点击"))
-        button2.pack(fill=tk.X, pady=5)
+        # 预留按钮1
+        self.btn1 = ttk.Button(
+            self.control_panel,
+            text="Function 1",
+            style="Control.TButton"
+        )
+        self.btn1.pack(pady=5, fill=tk.X)
 
-        button3 = ttk.Button(self.button_frame, text="按钮3", command=lambda: print("按钮3被点击"))
-        button3.pack(fill=tk.X, pady=5)
+        # 预留按钮2
+        self.btn2 = ttk.Button(
+            self.control_panel,
+            text="Function 2",
+            style="Control.TButton"
+        )
+        self.btn2.pack(pady=5, fill=tk.X)
+
+        # 状态指示
+        self.status_label = ttk.Label(self.control_panel, text="Ready")
+        self.status_label.pack(pady=10)
+
+    def setup_visualization(self):
+        """初始化可视化区域"""
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.ax.set_title("Simulation Visualization")
+        self.ax.grid(True)
+
+    def start_simulation(self):
+        """启动仿真线程"""
+        self.run_btn.config(state=tk.DISABLED)
+        self.status_label.config(text="Running...")
+        self.sim_thread = Thread(target=self.run_simulation)
+        self.sim_thread.start()
+        self.master.after(100, self.check_thread)
 
     def run_simulation(self):
-        # 创建仿真环境
-        env = simpy.Environment()
-        channel_states = {i: simpy.Resource(env, capacity=1) for i in range(config.NUMBER_OF_DRONES)}
-        sim = Simulator(seed=2025, env=env, channel_states=channel_states, n_drones=config.NUMBER_OF_DRONES)
+        """执行仿真任务"""
+        try:
+            # 初始化仿真环境
+            env = simpy.Environment()
+            channel_states = {i: simpy.Resource(env, capacity=1) for i in range(config.NUMBER_OF_DRONES)}
+            self.sim = Simulator(seed=2025, env=env, channel_states=channel_states,
+                                 n_drones=config.NUMBER_OF_DRONES)
 
-        # 启用可视化
-        visualizer = SimulationVisualizer(sim, output_dir=".", vis_frame_interval=20000)
-        visualizer.run_visualization()
+            # 配置可视化器
+            self.visualizer = SimulationVisualizer(
+                self.sim,
+                output_dir=".",
+                vis_frame_interval=20000,
+                fig=self.fig,
+                ax=[self.ax_data, self.ax_ack],
+                gui_mode=True
+            )
 
-        # 运行仿真
-        env.run(until=config.SIM_TIME)
+            # 运行逻辑
+            def simulation_process():
+                env.run(until=config.SIM_TIME)
+                self.visualizer.finalize()
+                self.canvas.draw()
 
-        # 获取仿真结果
-        self.plot_results()
+            Thread(target=simulation_process).start()
 
-    def plot_results(self):
-        # 清空画布
-        self.ax.clear()
+            # 最终化处理
+            self.visualizer.finalize()
+            self.canvas.draw()
 
-        # 这里是你的绘图逻辑，例如：
-        # self.ax.plot(x, y)
-        # self.ax.set_title("仿真结果")
-        # self.ax.set_xlabel("X轴")
-        # self.ax.set_ylabel("Y轴")
+        except Exception as e:
+            messagebox.showerror("Simulation Error", str(e))
+        finally:
+            self.run_btn.config(state=tk.NORMAL)
+            self.status_label.config(text="Completed")
 
-        # 刷新画布
-        self.canvas.draw()
+    def check_thread(self):
+        """检查线程状态"""
+        if self.sim_thread.is_alive():
+            self.master.after(100, self.check_thread)
+
 
 if __name__ == "__main__":
-    # 创建一个Tk对象(Tkinter库中的主窗口对象)
     root = tk.Tk()
-    # 创建一个SimulationGUI类的实例，将root窗口作为参数传递给构造函数。
-    app = SimulationGUI(root)
-    # 启动Tkinter的主事件循环。使GUI应用程序保持运行状态。
+    app = UavNetSimGUI(root)
     root.mainloop()
