@@ -91,7 +91,7 @@ class UavNetSimGUI:
         self.ax_data = self.fig.add_subplot(121, projection='3d')
         self.ax_ack = self.fig.add_subplot(122, projection='3d')
 
-        # 使用TkAgg后端
+        # 创建 Canvas 时指定父容器
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 

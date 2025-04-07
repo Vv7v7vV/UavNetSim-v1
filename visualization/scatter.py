@@ -53,6 +53,8 @@ def scatter_plot(simulator, gui_canvas=None):
 
     # 分派任务到主线程
     if gui_canvas:
-        gui_canvas.master.after(0, _plot)  # 提交到主线程队列
+        # 获取 Tkinter Widget 的父窗口（如主窗口）
+        root = gui_canvas.get_tk_widget().master
+        root.after(0, _plot)  # 通过 root 调度任务
     else:
-        _plot()  # 非GUI模式直接执行
+        _plot()
