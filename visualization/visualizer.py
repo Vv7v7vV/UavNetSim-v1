@@ -10,7 +10,7 @@ from utils import config
 import io
 import matplotlib.patheffects as path_effects
 from visualization.scatter import scatter_plot
-
+import threading
 
 # Add 3D arrow class definition that handles arrows in 3D view
 class Arrow3D(FancyArrowPatch):
@@ -110,7 +110,6 @@ class SimulationVisualizer:
         self.master = master  # 保存主窗口引用
         self.gui_mode = gui_mode  # 新增GUI模式标志
         self.gui_canvas = gui_canvas  # 保存Canvas引用
-
     
     def _setup_communication_tracking(self):
         """Setup tracking for communication events"""
@@ -312,64 +311,105 @@ class SimulationVisualizer:
             n_frames = len(self.frame_times)
             print(f"Generating {n_frames} frames with interval of {frame_interval_sec} seconds")
 
-            # Create a new figure for this frame
-            fig = plt.figure(figsize=(18, 6))
+            # # Create a new figure for this frame
+            # fig = plt.figure(figsize=(18, 6))
+            #
+            # for i, time_point in enumerate(self.frame_times):
+            #     print(f"Generating frame {i+1}/{n_frames}", end="\r")
+            #
+            #     # # Create a new figure for this frame
+            #     # fig = plt.figure(figsize=(18, 6))
+            #
+            #
+            #     # Clear previous plots if any
+            #     plt.clf()
+            #
+            #
+            #     # Draw visualization elements
+            #     self._draw_visualization_frame(fig, time_point)
+            #
+            #     # Save the figure to a BytesIO buffer
+            #     buf = io.BytesIO()
+            #     plt.savefig(buf, format='png', dpi=100)
+            #
+            #     # plt.close(fig)
+            #
+            #     # Reset buffer position and open image
+            #     buf.seek(0)
+            #     img = Image.open(buf)
+            #     # Convert to RGB mode to ensure compatibility
+            #     img = img.convert('RGB')
+            #     # Create a copy of the image to ensure it's fully loaded
+            #     img_copy = img.copy()
+            #     animation_frames.append(img_copy)
+            #     buf.close()
 
             for i, time_point in enumerate(self.frame_times):
-                print(f"Generating frame {i+1}/{n_frames}", end="\r")
-                
-                # # Create a new figure for this frame
-                # fig = plt.figure(figsize=(18, 6))
+                # 使用独立的Figure生成GIF，避免与GUI的fig冲突
+                print(f"Generating frame {i + 1}/{n_frames}", end="\r")
 
+                # 创建临时Figure
+                fig = plt.figure(figsize=(18, 6))
+                ax_data = fig.add_subplot(121, projection='3d')
+                ax_ack = fig.add_subplot(122, projection='3d')
 
-                # Clear previous plots if any
-                plt.clf()
-
-
-                # Draw visualization elements
+                # 调用绘图方法
                 self._draw_visualization_frame(fig, time_point)
-                
-                # Save the figure to a BytesIO buffer
+
+                # 保存到缓冲区
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png', dpi=100)
+                plt.close(fig)  # 关闭临时Figure释放内存
 
-                # plt.close(fig)
-                
-                # Reset buffer position and open image
+                # 处理图像
                 buf.seek(0)
-                img = Image.open(buf)
-                # Convert to RGB mode to ensure compatibility
-                img = img.convert('RGB')
-                # Create a copy of the image to ensure it's fully loaded
-                img_copy = img.copy()
-                animation_frames.append(img_copy)
+                img = Image.open(buf).convert('RGB')
+                animation_frames.append(img.copy())
                 buf.close()
-            
             print("\nSaving animation...")
             
-            # Save the animation
-            animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
+            # # Save the animation
+            # animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
+            # if animation_frames:
+            #     # Save with explicit parameters
+            #     animation_frames[0].save(
+            #         animation_file,
+            #         format='GIF',
+            #         save_all=True,
+            #         append_images=animation_frames[1:],
+            #         duration=50,  # ms per frame
+            #         loop=1,  # Loop indefinitely
+            #         optimize=True,
+            #         quality=70,    # Reduce quality slightly (0-100)
+            #         # Reduce colors if needed
+            #         colors=128     # Maximum number of colors
+            #     )
+            #     print(f"Animation saved to {animation_file}")
+            # else:
+            #     print("No frames were generated for the animation")
+
+
             if animation_frames:
-                # Save with explicit parameters
+                # 保存GIF
+                animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
                 animation_frames[0].save(
                     animation_file,
-                    format='GIF',
                     save_all=True,
                     append_images=animation_frames[1:],
-                    duration=50,  # ms per frame
-                    loop=1,  # Loop indefinitely
-                    optimize=True,
-                    quality=70,    # Reduce quality slightly (0-100)
-                    # Reduce colors if needed
-                    colors=128     # Maximum number of colors
+                    duration=100,  # 控制播放速度（毫秒/帧）
+                    loop=0,  # 无限循环
+                    optimize=True
                 )
                 print(f"Animation saved to {animation_file}")
+                return animation_file  # 返回文件路径供GUI显示
             else:
-                print("No frames were generated for the animation")
-                
+                print("No frames generated for animation")
+                return None
+
         except Exception as e:
             print(f"Error creating animation: {e}")
             print("Continuing with interactive visualization...")
+            return None
     
     def run_visualization(self):
         """
@@ -394,7 +434,19 @@ class SimulationVisualizer:
             self.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
             self.create_animations()
             self.create_interactive_visualization()
+
+            # 通过线程生成GIF，避免阻塞主线程
+            def safe_create_animations():
+                gif_path = self.create_animations()  # 调用生成GIF的方法
+                if gif_path:
+                    # 在主线程中调用消息提示
+                    self.master.after(0, lambda: self._show_completion_message(gif_path))
+
+            # 启动后台线程
+            from threading import Thread
+            Thread(target=safe_create_animations).start()
             print("Finalizing visualization...")
+
         else:
             # GUI模式仅更新当前状态
             current_time = self.simulator.env.now / 1e6
@@ -642,3 +694,9 @@ class SimulationVisualizer:
                        bbox=dict(boxstyle="round,pad=0.2", facecolor='lightgreen', 
                                 alpha=0.8, edgecolor=self.comm_colors["ACK"], linewidth=1.5),
                        zorder=99)  # Display above other elements but below drone IDs
+
+    def _show_completion_message(self, gif_path):
+        """显示GIF生成完成提示"""
+        from tkinter import messagebox  # 确保在主线程导入
+        if self.master:
+            messagebox.showinfo("Animation Saved", f"GIF saved to: {gif_path}")

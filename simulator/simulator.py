@@ -66,8 +66,9 @@ class Simulator:
         self.env.process(self.show_time())
 
     def show_time(self):
+        total_simulation_time_s = self.total_simulation_time/1e6
         while True:
-            print('At time: ', self.env.now / 1e6, ' s.')
+            print('仿真时间：',total_simulation_time_s,'s,\t进度: ', self.env.now / 1e6, ' s...')
             yield self.env.timeout(0.5*1e6)  # the simulation process is displayed every 0.5s
 
     def show_performance(self):

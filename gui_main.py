@@ -7,6 +7,8 @@ from utils import config
 from simulator.simulator import Simulator
 from visualization.visualizer import SimulationVisualizer
 import matplotlib.pyplot as plt
+from PIL import Image, ImageTk, ImageSequence
+
 
 import matplotlib
 matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
@@ -50,6 +52,12 @@ class UavNetSimGUI:
         # 添加线程安全队列
         self.plot_queue = []
         self.master.after(100, self.process_plot_queue)
+
+        # 添加GIF显示区域
+        self.gif_frame = ttk.Frame(self.control_panel)
+        self.gif_frame.pack(pady=10)
+        self.gif_label = ttk.Label(self.gif_frame)
+        self.gif_label.pack()
 
     def setup_controls(self):
         """初始化右侧控制按钮"""
@@ -102,9 +110,22 @@ class UavNetSimGUI:
         """启动仿真线程"""
         self.run_btn.config(state=tk.DISABLED)
         self.status_label.config(text="运行中...")
+
+        # 启动仿真线程（确保先初始化visualizer）
         self.sim_thread = Thread(target=self.run_simulation)
         self.sim_thread.start()
-        self.master.after(100, self.check_thread)
+
+        # 监听仿真线程完成后再启动GIF生成
+        self.master.after(100, self.check_thread_and_start_gif)
+
+    def check_thread_and_start_gif(self):
+        """检查仿真线程是否完成，完成后启动GIF生成"""
+        if self.sim_thread.is_alive():
+            self.master.after(100, self.check_thread_and_start_gif)
+        else:
+            # 仿真线程完成后，启动GIF生成线程
+            self.gif_thread = Thread(target=self.generate_and_display_gif)
+            self.gif_thread.start()
 
     def run_simulation(self):
         """执行仿真任务"""
@@ -124,17 +145,19 @@ class UavNetSimGUI:
             # 创建可视化器实例，设置仿真器、输出目录和可视化帧间隔（20000 微秒，即 0.02 秒）。
             self.visualizer = SimulationVisualizer(
                 self.sim,
-                gui_canvas=self.canvas,  # 传递Canvas引用
-                output_dir=".",
+                gui_canvas=self.canvas,
+                output_dir=".",  # 确保输出目录可写
                 vis_frame_interval=20000,
                 fig=self.fig,
                 ax=[self.ax_data, self.ax_ack],
                 gui_mode=True,
-                master=self.master  # 新增：传递主窗口引用
+                master=self.master  # 传递主窗口引用
             )
 
             # 传递 canvas 引用到 visualizer
             self.visualizer.gui_canvas = self.canvas
+            # 确保visualizer不为None
+            assert self.visualizer is not None, "Visualizer初始化失败"
 
             def simulation_process():
                 env.run(until=config.SIM_TIME)
@@ -142,6 +165,7 @@ class UavNetSimGUI:
                 self.visualizer.finalize()
                 self.canvas.draw()
 
+            # 启动仿真进程线程
             Thread(target=simulation_process).start()
 
         except Exception as e:
@@ -161,6 +185,46 @@ class UavNetSimGUI:
             task = self.plot_queue.pop(0)
             task()
         self.master.after(100, self.process_plot_queue)
+
+    def generate_and_display_gif(self):
+        """后台生成GIF并在完成后更新界面"""
+        if self.visualizer is None:
+            print("Visualizer未初始化，无法生成GIF")
+            return
+
+        # 调用visualizer生成GIF
+        gif_path = self.visualizer.create_animations()
+
+        # 在主线程更新GUI
+        if gif_path:
+            self.master.after(0, lambda: self.display_gif(gif_path))
+
+    def display_gif(self, gif_path):
+        """在GUI中显示GIF"""
+        try:
+            gif = Image.open(gif_path)
+            frames = []
+            for frame in ImageSequence.Iterator(gif):
+                frame = frame.convert('RGBA')  # 转换为RGBA模式以支持透明度
+                photo = ImageTk.PhotoImage(frame)
+                frames.append(photo)
+
+            # 保存帧引用，防止被垃圾回收
+            self.gif_frames = frames
+            self.current_frame = 0
+
+            # 开始播放动画
+            self.animate_gif()
+        except Exception as e:
+            print(f"Error displaying GIF: {e}")
+
+    def animate_gif(self):
+        """逐帧播放GIF"""
+        if self.current_frame < len(self.gif_frames):
+            self.gif_label.config(image=self.gif_frames[self.current_frame])
+            self.current_frame += 1
+            # 每100ms更新一帧（可根据GIF实际帧率调整）
+            self.master.after(100, self.animate_gif)
 
 
 if __name__ == "__main__":
