@@ -59,7 +59,7 @@ class UavNetSimGUI:
         # 运行按钮
         self.run_btn = ttk.Button(
             self.control_panel,
-            text="Start Simulation",
+            text="开始仿真",
             command=self.start_simulation,
             style="Control.TButton"
         )
@@ -68,7 +68,7 @@ class UavNetSimGUI:
         # 预留按钮1
         self.btn1 = ttk.Button(
             self.control_panel,
-            text="Function 1",
+            text="按钮1",
             style="Control.TButton"
         )
         self.btn1.pack(pady=5, fill=tk.X)
@@ -76,13 +76,13 @@ class UavNetSimGUI:
         # 预留按钮2
         self.btn2 = ttk.Button(
             self.control_panel,
-            text="Function 2",
+            text="按钮2",
             style="Control.TButton"
         )
         self.btn2.pack(pady=5, fill=tk.X)
 
         # 状态指示
-        self.status_label = ttk.Label(self.control_panel, text="Ready")
+        self.status_label = ttk.Label(self.control_panel, text="点击按钮运行仿真")
         self.status_label.pack(pady=10)
 
     def setup_visualization(self):
@@ -101,7 +101,7 @@ class UavNetSimGUI:
     def start_simulation(self):
         """启动仿真线程"""
         self.run_btn.config(state=tk.DISABLED)
-        self.status_label.config(text="Running...")
+        self.status_label.config(text="运行中...")
         self.sim_thread = Thread(target=self.run_simulation)
         self.sim_thread.start()
         self.master.after(100, self.check_thread)
@@ -129,7 +129,8 @@ class UavNetSimGUI:
                 vis_frame_interval=20000,
                 fig=self.fig,
                 ax=[self.ax_data, self.ax_ack],
-                gui_mode=True
+                gui_mode=True,
+                master=self.master  # 新增：传递主窗口引用
             )
 
             # 传递 canvas 引用到 visualizer
@@ -144,7 +145,7 @@ class UavNetSimGUI:
             Thread(target=simulation_process).start()
 
         except Exception as e:
-            messagebox.showerror("Simulation Error", str(e))
+            messagebox.showerror("仿真出错", str(e))
         # finally:
         #     self.run_btn.config(state=tk.NORMAL)
         #     self.status_label.config(text="Completed")

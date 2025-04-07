@@ -63,6 +63,9 @@ class GaussMarkov3D:
         self.trajectory = []
         self.my_drone.simulator.env.process(self.show_trajectory())
 
+        # 新增轨迹数据存储
+        self.trajectory_data = {'x': [], 'y': [], 'z': []}
+
     def mobility_update(self, drone):
         while True:
             env = drone.simulator.env
@@ -136,31 +139,76 @@ class GaussMarkov3D:
             energy_consumption = (self.position_update_interval / 1e6) * drone.energy_model.power_consumption(drone.speed)
             drone.residual_energy -= energy_consumption
 
+    # # plt绘图
+    # def show_trajectory(self):
+    #     x = []
+    #     y = []
+    #     z = []
+    #     yield self.my_drone.simulator.env.timeout(config.SIM_TIME-1)
+    #     if self.my_drone.identifier == 1:  # you can choose which drone's trajectory you want to check
+    #         for i in range(len(self.trajectory)):
+    #             x.append(self.trajectory[i][0])
+    #             y.append(self.trajectory[i][1])
+    #             z.append(self.trajectory[i][2])
+    #
+    #         plt.figure()
+    #         ax = plt.axes(projection='3d')
+    #         ax.set_xlim(self.min_x, self.max_x)
+    #         ax.set_ylim(self.min_y, self.max_y)
+    #         ax.set_zlim(self.min_z, self.max_z)
+    #
+    #         x = np.array(x)
+    #         y = np.array(y)
+    #         z = np.array(z)
+    #
+    #         ax.plot(x, y, z)
+    #         ax.set_xlabel('x')
+    #         ax.set_ylabel('y')
+    #         ax.set_zlabel('z')
+    #         plt.show()
+
     def show_trajectory(self):
-        x = []
-        y = []
-        z = []
-        yield self.my_drone.simulator.env.timeout(config.SIM_TIME-1)
-        if self.my_drone.identifier == 1:  # you can choose which drone's trajectory you want to check
-            for i in range(len(self.trajectory)):
-                x.append(self.trajectory[i][0])
-                y.append(self.trajectory[i][1])
-                z.append(self.trajectory[i][2])
+        yield self.my_drone.simulator.env.timeout(config.SIM_TIME - 1)
+        if self.my_drone.identifier == 1:
+            # 收集轨迹数据，不直接绘图
+            self.trajectory_data['x'] = [pos[0] for pos in self.trajectory]
+            self.trajectory_data['y'] = [pos[1] for pos in self.trajectory]
+            self.trajectory_data['z'] = [pos[2] for pos in self.trajectory]
 
-            plt.figure()
-            ax = plt.axes(projection='3d')
-            ax.set_xlim(self.min_x, self.max_x)
-            ax.set_ylim(self.min_y, self.max_y)
-            ax.set_zlim(self.min_z, self.max_z)
+            # 通知主线程更新图形
+            if hasattr(self.my_drone.simulator, 'gui_canvas'):
+                self._schedule_plot()
 
-            x = np.array(x)
-            y = np.array(y)
-            z = np.array(z)
+    def _schedule_plot(self):
+        """通过主线程调度绘图"""
+        if self.my_drone.simulator.gui_canvas:
+            root = self.my_drone.simulator.gui_canvas.get_tk_widget().master.winfo_toplevel()
+            root.after(0, self._plot_trajectory)
 
-            ax.plot(x, y, z)
-            ax.set_xlabel('x')
-            ax.set_ylabel('y')
-            ax.set_zlabel('z')
+    def _plot_trajectory(self):
+        """实际绘图逻辑（在主线程执行）"""
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.plot(
+            self.trajectory_data['x'],
+            self.trajectory_data['y'],
+            self.trajectory_data['z']
+        )
+
+        ax.set_xlim(self.min_x, self.max_x)
+        ax.set_ylim(self.min_y, self.max_y)
+        ax.set_zlim(self.min_z, self.max_z)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+
+        # 集成到GUI Canvas
+        if hasattr(self.my_drone.simulator, 'gui_canvas'):
+            self.my_drone.simulator.gui_canvas.figure = fig
+            self.my_drone.simulator.gui_canvas.draw()
+            plt.close(fig)  # 关闭临时图形
+        else:
             plt.show()
 
     # rebound scheme (refer to ns-3)

@@ -37,7 +37,8 @@ class SimulationVisualizer:
     Visualize UAV network simulation process, including movement trajectories and communication status
     """
     
-    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000, fig=None, ax=None, gui_mode=False, gui_canvas=None):
+    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000,
+                 fig=None, ax=None, gui_mode=False, gui_canvas=None, master=None):
         """
         Initialize visualizer
         
@@ -52,8 +53,6 @@ class SimulationVisualizer:
         self.simulator = simulator
         self.output_dir = output_dir
         self.vis_frame_interval = vis_frame_interval
-        self.gui_mode = gui_mode  # 新增GUI模式标志
-        self.gui_canvas = gui_canvas  # 保存Canvas引用
 
         # 新增GUI集成参数
         if fig is None or ax is None:
@@ -107,8 +106,10 @@ class SimulationVisualizer:
         self.comm_events.sort(key=lambda x: x[4])
 
         # 添加GUI模式下的绘图控制
-        self.gui_canvas = None
-        self.gui_mode = gui_mode
+        # self.gui_canvas = None
+        self.master = master  # 保存主窗口引用
+        self.gui_mode = gui_mode  # 新增GUI模式标志
+        self.gui_canvas = gui_canvas  # 保存Canvas引用
 
     
     def _setup_communication_tracking(self):
@@ -284,15 +285,16 @@ class SimulationVisualizer:
         return list(latest_comms_dict.values())
 
     def create_animations(self):
-        """Create GIF animation of the simulation"""
+        """Create GIF animation of the simulation (线程安全版本)"""
         import io
+        from PIL import Image
         
         if not self.timestamps:
             print("No timestamps available for animation")
             return
         
         try:
-            print("Creating animation GIF...")
+            print("正在创建动态 GIF...")
             animation_frames = []
             
             # Calculate frames based on vis_frame_interval
@@ -386,16 +388,17 @@ class SimulationVisualizer:
         self.simulator.env.process(track_positions())
     
     def finalize(self):
-        if self.gui_mode and self.gui_canvas:
+        if self.gui_mode and self.master:
             # 在主线程中调用散点图
-            self.gui_canvas.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
+            # self.gui_canvas.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
+            self.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
             self.create_animations()
             self.create_interactive_visualization()
             print("Finalizing visualization...")
         else:
             # GUI模式仅更新当前状态
             current_time = self.simulator.env.now / 1e6
-            self._draw_visualization_frame(current_time)
+            self._draw_visualization_frame(self.fig,current_time)
             if self.gui_canvas:
                 self.gui_canvas.draw_idle()
 
