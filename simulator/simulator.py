@@ -53,7 +53,10 @@ class Simulator:
             else:
                 speed = 10
 
-            print(f'无人机: {i} 初始位置: {start_position[i]:.2f},  速度:{speed}')
+            print(f'无人机: {i}, '
+                  f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}) , '
+                  f' 速度:{speed}')
+
             drone = Drone(env=env, node_id=i, coords=start_position[i], speed=speed,
                           inbox=self.channel.create_inbox_for_receiver(i), simulator=self)
             self.drones.append(drone)
