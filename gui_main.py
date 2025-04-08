@@ -1,4 +1,5 @@
 import tkinter as tk
+from sys import maxsize
 from tkinter import ttk, messagebox
 from threading import Thread
 import simpy
@@ -15,101 +16,177 @@ matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
 matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 class UavNetSimGUI:
+    # 字体
+    title_font_size = 25
+    text_font_size = 20
+    title_font = ('黑体', title_font_size)
+    text_font = ('宋体', text_font_size)
+
     def __init__(self, master):
         self.master = master
         master.title("UavNetSim-v1 Control Panel")
-        master.geometry("1400x800")
+        master.geometry("1600x900")
+        master.minsize(800, 600)  # 防止过度压缩
 
-        # 主布局框架
+        # 主框架使用grid布局
         self.main_frame = ttk.Frame(master)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 右侧控制面板
-        self.control_panel = ttk.Frame(self.main_frame, width=200)
-        self.control_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+        # 配置主框架列权重（左:中:右 = 2:4:1）
+        self.main_frame.columnconfigure(0, weight=2)
+        self.main_frame.columnconfigure(1, weight=4)
+        self.main_frame.columnconfigure(2, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
 
-        # 可视化区域
+        # ========== 左侧面板 ==========
+        self.left_panel = ttk.Frame(self.main_frame)
+        self.left_panel.grid(row=0, column=0, sticky="nsew")
+        # 配置左面板行权重（上:下 = 2:1）
+        self.left_panel.rowconfigure(0, weight=2)
+        self.left_panel.rowconfigure(1, weight=1)
+        self.left_panel.columnconfigure(0, weight=1)
+
+        # 左上区域（无人机参数）
+        self.left_upper = ttk.LabelFrame(self.left_panel, text="无人机初始化参数")
+        self.left_upper.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.drone_info = tk.Text(self.left_upper, wrap=tk.WORD, font=self.text_font)
+        self.drone_info.pack(fill=tk.BOTH, expand=True)  # 内部组件可用pack
+
+        # 左下区域（性能指标）
+        self.left_lower = ttk.LabelFrame(self.left_panel, text="实时性能指标")
+        self.left_lower.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.metrics_info = tk.Text(self.left_lower, wrap=tk.WORD, font=self.text_font)
+        self.metrics_info.pack(fill=tk.BOTH, expand=True)
+
+        # ========== 中间可视化区域 ==========
         self.vis_frame = ttk.Frame(self.main_frame)
-        self.vis_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.vis_frame.grid(row=0, column=1, sticky="nsew")
 
-        # 初始化控制按钮
+        # 创建4个子图（保持原有代码）
+        self.fig = plt.figure(figsize=(16, 10))
+        self.gs = self.fig.add_gridspec(2, 2)  # 使用GridSpec管理4个子图
+
+        self.axs = [
+            self.fig.add_subplot(221, projection='3d'),  # 左上
+            self.fig.add_subplot(222, projection='3d'),  # 右上
+            self.fig.add_subplot(223, projection='3d'),  # 左下
+            self.fig.add_subplot(224, projection='3d')  # 右下
+        ]
+        # 设置子图标题
+        titles = ["网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
+        for ax, title in zip(self.axs, titles):
+            ax.set_title(title, fontsize=20)
+            ax.axis('off')  # 初始隐藏坐标轴
+
+        # 创建唯一Canvas
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # ========== 右侧面板 ==========
+        self.right_panel = ttk.Frame(self.main_frame)
+        self.right_panel.grid(row=0, column=2, sticky="nsew")
+        self.right_panel.grid_propagate(False)  # 禁止自动调整尺寸
+        self.right_panel.config(width=300)  # 设置固定基础宽度
+        self.right_panel.columnconfigure(0, weight=1, minsize=200)  # 动态约束
+
+        # 配置右面板行权重（上:下 = 1:1）
+        self.right_panel.rowconfigure(0, weight=1)
+        self.right_panel.rowconfigure(1, weight=1)
+        self.right_panel.columnconfigure(0, weight=1)
+
+        # 右上区域（控制按钮）
+        self.right_upper = ttk.Frame(self.right_panel)
+        self.right_upper.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.setup_controls()
 
-        # 初始化可视化组件
-        self.setup_visualization()
+        # 右下区域（运行日志）
+        self.right_lower = ttk.LabelFrame(self.right_panel, text="运行日志")
+        self.right_lower.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.log_info = tk.Text(self.right_lower, wrap=tk.WORD, font=self.text_font)
+        self.log_info.pack(fill=tk.BOTH, expand=True)
 
-        # 仿真相关对象
+        # 初始化默认文本内容
+        self._init_default_text()
+
+        # ====================================仿真相关对象=======================================
         self.sim = None
         self.visualizer = None
         self.sim_thread = None
 
-        self.fig = plt.figure(figsize=(18, 6))
-        self.ax_data = self.fig.add_subplot(121, projection='3d')
-        self.ax_ack = self.fig.add_subplot(122, projection='3d')
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # self.fig = plt.figure(figsize=(18, 6))
+        # self.ax_data = self.fig.add_subplot(121, projection='3d')
+        # self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        # self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
+        # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # 添加线程安全队列
         self.plot_queue = []
         self.master.after(100, self.process_plot_queue)
 
-        # 添加GIF显示区域
-        self.gif_frame = ttk.Frame(self.control_panel)
-        self.gif_frame.pack(pady=10)
-        self.gif_label = ttk.Label(self.gif_frame)
-        self.gif_label.pack()
+        # # 添加GIF显示区域
+        # self.gif_frame = ttk.Frame(self.control_panel)
+        # self.gif_frame.pack(pady=10)
+        # self.gif_label = ttk.Label(self.gif_frame)
+        # self.gif_label.pack()
+
+        self.master.bind("<Configure>", self._on_window_resize)
+        # self.print_layout()
 
     def setup_controls(self):
-        """初始化右侧控制按钮"""
+        """初始化控制按钮（放大按钮尺寸）"""
         style = ttk.Style()
-        style.configure("Control.TButton", width=15, padding=6)
+        style.configure("Big.TButton",
+                       font=self.title_font,
+                       padding=10,
+                       width=15)
 
-        # 运行按钮
-        self.run_btn = ttk.Button(
-            self.control_panel,
-            text="开始仿真",
-            command=self.start_simulation,
-            style="Control.TButton"
-        )
-        self.run_btn.pack(pady=10, fill=tk.X)
+        buttons = [
+            ("开始仿真", self.start_simulation),
+            ("重置参数", lambda: self.log("重置功能待实现")),
+            ("修改参数", lambda: self.log("功能待实现")),
+            ("选择模型", lambda: self.log("功能待实现"))
+        ]
 
-        # 预留按钮1
-        self.btn1 = ttk.Button(
-            self.control_panel,
-            text="按钮1",
-            style="Control.TButton"
-        )
-        self.btn1.pack(pady=5, fill=tk.X)
+        for i, (text, cmd) in enumerate(buttons):
+            btn = ttk.Button(
+                self.right_upper,
+                text=text,
+                command=cmd,
+                style="Big.TButton"
+            )
+            btn.grid(row=i, column=0, sticky="ew", pady=5)  # 使用grid布局
 
-        # 预留按钮2
-        self.btn2 = ttk.Button(
-            self.control_panel,
-            text="按钮2",
-            style="Control.TButton"
-        )
-        self.btn2.pack(pady=5, fill=tk.X)
+        # 配置按钮区域权重
+        self.right_upper.columnconfigure(0, weight=1)
+        self.right_upper.rowconfigure(tuple(range(4)), weight=1)
 
-        # 状态指示
-        self.status_label = ttk.Label(self.control_panel, text="点击按钮运行仿真")
-        self.status_label.pack(pady=10)
+    def _init_default_text(self):
+        """初始化左侧文本内容"""
+        # 无人机初始化数据
+        drone_data = """运行仿真后展示无人机信息"""
+        self.drone_info.insert(tk.END, drone_data)
+        self.drone_info.config(state=tk.DISABLED)
 
-    def setup_visualization(self):
-        """初始化可视化区域"""
-        self.fig = plt.figure(figsize=(18, 6))
-        self.ax_data = self.fig.add_subplot(121, projection='3d')
-        self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        # 性能指标
+        metrics_data = """运行仿真后展示指标信息"""
+        self.metrics_info.insert(tk.END, metrics_data)
+        self.metrics_info.config(state=tk.DISABLED)
 
-        # 创建 Canvas 时指定父容器
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # 初始化日志
+        self.log("系统初始化完成")
+        self.log("等待用户操作...")
 
-        # 传递canvas引用给visualizer
-        # self.visualizer.gui_canvas = self.canvas
+    def log(self, message):
+        """向日志区域添加信息"""
+        self.log_info.config(state=tk.NORMAL)
+        self.log_info.insert(tk.END, f"> {message}\n")
+        self.log_info.see(tk.END)
+        self.log_info.config(state=tk.DISABLED)
 
     def start_simulation(self):
         """启动仿真线程"""
-        self.run_btn.config(state=tk.DISABLED)
-        self.status_label.config(text="运行中...")
+        # self.run_btn.config(state=tk.DISABLED)
+        # self.status_label.config(text="运行中...")
 
         # 启动仿真线程（确保先初始化visualizer）
         self.sim_thread = Thread(target=self.run_simulation)
@@ -149,7 +226,7 @@ class UavNetSimGUI:
                 output_dir=".",  # 确保输出目录可写
                 vis_frame_interval=20000,
                 fig=self.fig,
-                ax=[self.ax_data, self.ax_ack],
+                ax=self.axs,  # 传递所有4个子图对象
                 gui_mode=True,
                 master=self.master  # 传递主窗口引用
             )
@@ -226,6 +303,20 @@ class UavNetSimGUI:
             # 每100ms更新一帧（可根据GIF实际帧率调整）
             self.master.after(100, self.animate_gif)
 
+    def print_layout(self):
+        left = self.left_panel.winfo_width()
+        center = self.vis_frame.winfo_width()
+        right = self.right_panel.winfo_width()
+        print(
+            f"比例 | 左:{left} | 中:{center} | 右:{right} | 实际比例:{left / center:.1f}:{center / center:.1f}:{right / center:.1f}")
+        self.master.after(1000, self.print_layout)
+
+    def _on_window_resize(self, event):
+        total_width = self.main_frame.winfo_width()
+        # 强制按比例分配
+        self.main_frame.columnconfigure(0, minsize=int(total_width * 2 / 7))
+        self.main_frame.columnconfigure(1, minsize=int(total_width * 4 / 7))
+        self.main_frame.columnconfigure(2, minsize=int(total_width * 1 / 7))
 
 if __name__ == "__main__":
     root = tk.Tk()

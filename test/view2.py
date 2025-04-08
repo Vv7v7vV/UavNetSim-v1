@@ -4,7 +4,7 @@ from PIL import Image
 import matplotlib.animation as animation
 
 # 打开 GIF 图片
-gif_path = "uav_network_simulation.gif"  # 替换为你的 GIF 文件路径
+gif_path = "../uav_network_simulation.gif"  # 替换为你的 GIF 文件路径
 image = Image.open(gif_path)
 
 # 获取 GIF 的所有帧

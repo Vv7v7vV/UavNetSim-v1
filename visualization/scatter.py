@@ -20,21 +20,23 @@ def scatter_plot(simulator, gui_canvas=None):
         # 绘制无人机和通信链路
         for drone1 in simulator.drones:
             for drone2 in simulator.drones:
+                # 3. 排除自身比较
                 if drone1.identifier != drone2.identifier:
-                    # 绘制无人机位置
+                    # 4. 绘制无人机位置（红色点）
                     ax.scatter(
                         drone1.coords[0], drone1.coords[1], drone1.coords[2],
                         c='red', s=30, alpha=0.7
                     )
-                    # 计算距离并绘制通信链路
+                    # 5. 计算两无人机之间的欧氏距离
                     distance = euclidean_distance_3d(drone1.coords, drone2.coords)
+                    # 6. 如果距离在通信范围内，绘制通信链路
                     if distance <= maximum_communication_range():
                         x = [drone1.coords[0], drone2.coords[0]]
                         y = [drone1.coords[1], drone2.coords[1]]
                         z = [drone1.coords[2], drone2.coords[2]]
                         ax.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
-
-        # 设置坐标轴范围和标签
+        
+        # 7. 设置3D坐标轴范围和标签
         ax.set_xlim(0, config.MAP_LENGTH)
         ax.set_ylim(0, config.MAP_WIDTH)
         ax.set_zlim(0, config.MAP_HEIGHT)

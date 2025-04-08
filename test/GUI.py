@@ -71,7 +71,7 @@ class SimulationGUI:
 
     def display_images(self):
         # 获取图像文件列表
-        image_files = [f for f in os.listdir(".") if f.startswith("result") and f.endswith(".png")]
+        image_files = [f for f in os.listdir("..") if f.startswith("result") and f.endswith(".png")]
         image_files.sort()  # 按文件名排序
 
         # 清空画布

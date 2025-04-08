@@ -44,7 +44,7 @@ root = tk.Tk()
 root.title("GIF Player")
 
 # 替换为你的 GIF 文件路径
-gif_path = "uav_network_simulation.gif"  # 替换为你的 GIF 文件路径
+gif_path = "../uav_network_simulation.gif"  # 替换为你的 GIF 文件路径
 player = GIFPlayer(root, gif_path)
 
 # 运行 Tkinter 主循环
