@@ -66,21 +66,30 @@ class UavNetSimGUI:
         self.fig = plt.figure(figsize=(16, 10))
         self.gs = self.fig.add_gridspec(2, 2)  # 使用GridSpec管理4个子图
 
-        self.axs = [
-            self.fig.add_subplot(221, projection='3d'),  # 左上
-            self.fig.add_subplot(222, projection='3d'),  # 右上
-            self.fig.add_subplot(223, projection='3d'),  # 左下
-            self.fig.add_subplot(224, projection='3d')  # 右下
-        ]
-        # 设置子图标题
+        # 明确定义所有子图并初始化为空3D坐标系
+        self.axs = []
+        positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
         titles = ["网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
-        for ax, title in zip(self.axs, titles):
-            ax.set_title(title, fontsize=20)
-            ax.axis('off')  # 初始隐藏坐标轴
+        for pos, title in zip(positions, titles):
+            ax = self.fig.add_subplot(
+                self.gs[pos[0], pos[1]],  # 使用GridSpec索引
+                projection='3d'
+            )
+            # 初始化为空白3D坐标系
+            ax.grid(True)  # 关闭网格线
+            ax.axis('on')  # 隐藏坐标轴
+            ax.set_title(title, fontsize=12)
+            # 设置初始视角和坐标范围（可选）
+            ax.view_init(elev=30, azim=45)  # 俯仰角30度，方位角45度
+            ax.set_xlim(0, config.MAP_LENGTH)
+            ax.set_ylim(0, config.MAP_WIDTH)
+            ax.set_zlim(0, config.MAP_HEIGHT)
+            self.axs.append(ax)
 
         # 创建唯一Canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas.draw()  # 立即渲染空白图像
 
         # ========== 右侧面板 ==========
         self.right_panel = ttk.Frame(self.main_frame)
