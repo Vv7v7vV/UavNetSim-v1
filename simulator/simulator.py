@@ -53,7 +53,7 @@ class Simulator:
             else:
                 speed = 10
 
-            print('无人机: ', i, '初始位置: ', start_position[i], ' 速度: ', speed)
+            print(f'无人机: {i} 初始位置: {start_position[i]:.2f},  速度:{speed}')
             drone = Drone(env=env, node_id=i, coords=start_position[i], speed=speed,
                           inbox=self.channel.create_inbox_for_receiver(i), simulator=self)
             self.drones.append(drone)
@@ -68,7 +68,7 @@ class Simulator:
     def show_time(self):
         total_simulation_time_s = self.total_simulation_time/1e6
         while True:
-            print('仿真时间：',total_simulation_time_s,'s,\t进度: ', self.env.now / 1e6, ' s...')
+            print('仿真进度：',self.env.now / 1e6,'s/', total_simulation_time_s, 's.')
             yield self.env.timeout(0.5*1e6)  # the simulation process is displayed every 0.5s
 
     def show_performance(self):
