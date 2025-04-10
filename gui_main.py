@@ -6,6 +6,7 @@ import simpy
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from utils import config
 from simulator.simulator import Simulator
+from visualization.scatter import scatter_plot
 from visualization.visualizer import SimulationVisualizer
 import matplotlib.pyplot as plt
 from PIL import Image, ImageTk, ImageSequence
@@ -66,25 +67,44 @@ class UavNetSimGUI:
         self.axs = []
         positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
         titles = ["初始网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
-        for pos, title in zip(positions, titles):
-            ax = self.fig.add_subplot(
-                self.gs[pos[0], pos[1]],  # 使用GridSpec索引
-                projection='3d'
-            )
-            # 初始化为空白3D坐标系
-            ax.grid(True)  # 关闭网格线
-            ax.axis('on')  # 隐藏坐标轴
-            ax.set_title(title, fontsize=config.fig_font_size)
-            # 设置初始视角和坐标范围（可选）
-            ax.view_init(elev=30, azim=45)  # 俯仰角30度，方位角45度
+        for idx, (pos, title) in enumerate(zip(positions, titles)):
+            # if idx == 0:  # 第一个子图改为2D
+            #     ax = self.fig.add_subplot(self.gs[pos[0], pos[1]])
+            #     ax.set_title(title, fontsize=12)
+            #     ax.grid(True)
+            #     ax.set_xlim(0, config.MAP_LENGTH)
+            #     ax.set_ylim(0, config.MAP_WIDTH)
+            # else:  # 其他子图保持3D
+            ax = self.fig.add_subplot(self.gs[pos[0], pos[1]], projection='3d')
+            ax.grid(True)
+            ax.set_title(title, fontsize=12)
+            ax.view_init(elev=30, azim=45)
             ax.set_xlim(0, config.MAP_LENGTH)
             ax.set_ylim(0, config.MAP_WIDTH)
             ax.set_zlim(0, config.MAP_HEIGHT)
             self.axs.append(ax)
+        # for pos, title in zip(positions, titles):
+        #     ax = self.fig.add_subplot(
+        #         self.gs[pos[0], pos[1]],  # 使用GridSpec索引
+        #         projection='3d'
+        #     )
+        #     # 初始化为空白3D坐标系
+        #     ax.grid(True)  # 关闭网格线
+        #     ax.axis('on')  # 隐藏坐标轴
+        #     ax.set_title(title, fontsize=config.fig_font_size)
+        #     # 设置初始视角和坐标范围（可选）
+        #     ax.view_init(elev=30, azim=45)  # 俯仰角30度，方位角45度
+        #     ax.set_xlim(0, config.MAP_LENGTH)
+        #     ax.set_ylim(0, config.MAP_WIDTH)
+        #     ax.set_zlim(0, config.MAP_HEIGHT)
+        #     self.axs.append(ax)
 
         # 创建唯一Canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # 绑定2D子图点击事件
+        self.canvas.mpl_connect('button_press_event', self.on_2d_plot_click)
+
         self.canvas.draw()  # 立即渲染空白图像
 
         # ========== 右侧面板 ==========
@@ -368,7 +388,7 @@ class UavNetSimGUI:
 
         def _update():
             self.drone_info.config(state=tk.NORMAL)
-            self.drone_info.delete(1.0, tk.END)  # 清空内容
+            # self.drone_info.delete(1.0, tk.END)  # 清空内容
             self.drone_info.insert(tk.END, text + "\n")
             self.drone_info.see(tk.END)
             self.drone_info.config(state=tk.DISABLED)
@@ -414,7 +434,29 @@ class UavNetSimGUI:
         # 13. 通过主线程队列保证线程安全
         self.master.after(0, _update)
 
+    def on_2d_plot_click(self, event):
+        """点击2D图时弹出3D窗口"""
+        if event.inaxes != self.axs[0]:
+            return
 
+        # 创建弹出窗口
+        popup = tk.Toplevel(self.master)
+        popup.title("3D网络拓扑视图")
+        popup.geometry("800x600")
+
+        # 创建3D Canvas
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        canvas = FigureCanvasTkAgg(fig, master=popup)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # 调用3D绘图
+        scatter_plot(
+            self.sim,
+            gui_canvas=canvas,
+            is_3d=True,
+            target_ax=ax
+        )
 
 
 

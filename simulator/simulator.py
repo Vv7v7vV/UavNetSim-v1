@@ -88,6 +88,7 @@ class Simulator:
             scatter_plot(
                 self,
                 gui_canvas=self.gui_canvas,
+                is_3d=False,
                 target_ax=axs[0]  # 传递目标子图
             )
         else:
