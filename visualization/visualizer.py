@@ -37,8 +37,15 @@ class SimulationVisualizer:
     Visualize UAV network simulation process, including movement trajectories and communication status
     """
     
-    def __init__(self, simulator, output_dir="vis_results", vis_frame_interval=50000,
-                 fig=None, ax=None, gui_mode=False, gui_canvas=None, master=None):
+    def __init__(self,
+                 simulator,
+                 output_dir="vis_results",
+                 vis_frame_interval=50000,
+                 fig=None,
+                 ax=None,
+                 gui_mode=False,
+                 gui_canvas=None,
+                 master=None):
         """
         Initialize visualizer
         
@@ -54,15 +61,15 @@ class SimulationVisualizer:
         self.output_dir = output_dir
         self.vis_frame_interval = vis_frame_interval
 
-        # 新增GUI集成参数
-        if fig is None or ax is None:
-            self.fig = plt.figure(figsize=(18, 6))
-            self.ax_data = self.fig.add_subplot(121, projection='3d')
-            self.ax_ack = self.fig.add_subplot(122, projection='3d')
-        else:
-            self.fig = fig
-            self.ax_data = ax[0] if isinstance(ax, (list, tuple)) else ax
-            self.ax_ack = ax[1] if isinstance(ax, (list, tuple)) else ax
+        # # 新增GUI集成参数
+        # if fig is None or ax is None:
+        #     self.fig = plt.figure(figsize=(18, 6))
+        #     self.ax_data = self.fig.add_subplot(121, projection='3d')
+        #     self.ax_ack = self.fig.add_subplot(122, projection='3d')
+        # else:
+        #     self.fig = fig
+        #     self.ax_data = ax[0] if isinstance(ax, (list, tuple)) else ax
+        #     self.ax_ack = ax[1] if isinstance(ax, (list, tuple)) else ax
 
         os.makedirs(output_dir, exist_ok=True)
         self.drone_positions = {i: [] for i in range(self.simulator.n_drones)}

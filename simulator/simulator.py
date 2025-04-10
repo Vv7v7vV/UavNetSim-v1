@@ -34,6 +34,7 @@ class Simulator:
                  total_simulation_time=config.SIM_TIME,
                  update_drone_callback=None,
                  update_progress_callback=None,  # 新增进度回调
+                 axs=None,
                  gui_canvas=None):
 
         self.env = env
@@ -81,7 +82,19 @@ class Simulator:
 
         # scatter_plot(self)
         # scatter_plot(simulator, gui_canvas=self.canvas)  # 通过主线程调用
-        scatter_plot(self, gui_canvas=self.gui_canvas)
+
+        # 1图pic
+        if gui_canvas:
+            scatter_plot(
+                self,
+                gui_canvas=self.gui_canvas,
+                target_ax=axs[0]  # 传递目标子图
+            )
+        else:
+            scatter_plot(
+                self,
+                gui_canvas=self.gui_canvas,
+                target_ax=0)
 
         self.env.process(self.show_performance())
         self.env.process(self.show_time())

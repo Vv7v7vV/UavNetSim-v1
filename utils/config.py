@@ -3,6 +3,14 @@ from utils.ieee_802_11 import IeeeStandard
 
 IEEE_802_11 = IeeeStandard().b_802_11
 
+# ------------------------ GUI parameters ------------------------ #
+
+title_font_size = 25
+text_font_size = 20
+fig_font_size = 15
+title_font = ('黑体', title_font_size)
+text_font = ('宋体', text_font_size)
+
 # --------------------- simulation parameters --------------------- #
 MAP_LENGTH = 600  # m, length of the map
 MAP_WIDTH = 600  # m, width of the map

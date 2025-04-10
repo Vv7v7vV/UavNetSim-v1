@@ -4,18 +4,32 @@ from utils import config
 from utils.util_function import euclidean_distance_3d
 from phy.large_scale_fading import maximum_communication_range
 
+import matplotlib
+matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 # scatter.py
-def scatter_plot(simulator, gui_canvas=None):
+def scatter_plot(simulator, gui_canvas=None, target_ax=None):
     """
     绘制无人机分布和通信链路的散点图（支持GUI模式）
+    支持在指定子图上绘图（优先使用target_ax）
     """
 
     def _plot():
-        """实际绘图逻辑（在主线程中执行）"""
+        """
+        实际绘图逻辑（在主线程中执行）
+        """
+
         # 创建新图形
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        # 如果提供了target_ax，直接使用该Axes对象
+        if target_ax:
+            ax = target_ax
+            ax.clear()  # 清空旧图形
+            ax.set_title("初始网络拓扑视图", fontsize=config.fig_font_size)  # 设置标题
+        else:
+            # 非GUI模式或未提供target_ax时创建新Figure
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
 
         # 绘制无人机和通信链路
         for drone1 in simulator.drones:
@@ -36,20 +50,24 @@ def scatter_plot(simulator, gui_canvas=None):
                         z = [drone1.coords[2], drone2.coords[2]]
                         ax.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
         
-        # 7. 设置3D坐标轴范围和标签
-        ax.set_xlim(0, config.MAP_LENGTH)
-        ax.set_ylim(0, config.MAP_WIDTH)
-        ax.set_zlim(0, config.MAP_HEIGHT)
-        ax.set_xlabel('X (m)')
-        ax.set_ylabel('Y (m)')
-        ax.set_zlabel('Z (m)')
+        # 7. 设置3D坐标轴范围和标签（仅在未提供target_ax时生效）
+        if not gui_canvas:
+            if target_ax == 0:
+                ax.set_title("初始网络拓扑视图", fontsize=config.fig_font_size)  # 设置标题
+            ax.set_xlim(0, config.MAP_LENGTH)
+            ax.set_ylim(0, config.MAP_WIDTH)
+            ax.set_zlim(0, config.MAP_HEIGHT)
+            ax.set_xlabel('X (m)')
+            ax.set_ylabel('Y (m)')
+            ax.set_zlabel('Z (m)')
 
         # GUI模式：更新Canvas
-        if gui_canvas:
-            gui_canvas.figure = fig
+        if gui_canvas and target_ax:
+            gui_canvas.draw()  # 直接刷新Canvas
+        elif gui_canvas:
+            gui_canvas.figure = ax.figure
             gui_canvas.draw()
-            plt.close(fig)  # 关闭临时图形，防止内存泄漏
-        # 非GUI模式：直接显示
+            plt.close(ax.figure)
         else:
             plt.show()
 

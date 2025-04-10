@@ -17,10 +17,6 @@ matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 class UavNetSimGUI:
     # 字体
-    title_font_size = 25
-    text_font_size = 20
-    title_font = ('黑体', title_font_size)
-    text_font = ('宋体', text_font_size)
 
     def __init__(self, master):
         self.master = master
@@ -49,13 +45,13 @@ class UavNetSimGUI:
         # 左上区域（无人机参数）
         self.left_upper = ttk.LabelFrame(self.left_panel, text="无人机初始化参数")
         self.left_upper.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.drone_info = tk.Text(self.left_upper, wrap=tk.WORD, font=self.text_font)
+        self.drone_info = tk.Text(self.left_upper, wrap=tk.WORD, font=config.text_font)
         self.drone_info.pack(fill=tk.BOTH, expand=True)  # 内部组件可用pack
 
         # 左下区域（性能指标）
         self.left_lower = ttk.LabelFrame(self.left_panel, text="实时性能指标")
         self.left_lower.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-        self.metrics_info = tk.Text(self.left_lower, wrap=tk.WORD, font=self.text_font)
+        self.metrics_info = tk.Text(self.left_lower, wrap=tk.WORD, font=config.text_font)
         self.metrics_info.pack(fill=tk.BOTH, expand=True)
 
         # ========== 中间可视化区域 ==========
@@ -69,7 +65,7 @@ class UavNetSimGUI:
         # 明确定义所有子图并初始化为空3D坐标系
         self.axs = []
         positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
-        titles = ["网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
+        titles = ["初始网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
         for pos, title in zip(positions, titles):
             ax = self.fig.add_subplot(
                 self.gs[pos[0], pos[1]],  # 使用GridSpec索引
@@ -78,7 +74,7 @@ class UavNetSimGUI:
             # 初始化为空白3D坐标系
             ax.grid(True)  # 关闭网格线
             ax.axis('on')  # 隐藏坐标轴
-            ax.set_title(title, fontsize=12)
+            ax.set_title(title, fontsize=config.fig_font_size)
             # 设置初始视角和坐标范围（可选）
             ax.view_init(elev=30, azim=45)  # 俯仰角30度，方位角45度
             ax.set_xlim(0, config.MAP_LENGTH)
@@ -117,7 +113,7 @@ class UavNetSimGUI:
         # 右下区域（运行日志）
         self.right_lower = ttk.LabelFrame(self.right_panel, text="运行日志")
         self.right_lower.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-        self.log_info = tk.Text(self.right_lower, wrap=tk.WORD, font=self.text_font)
+        self.log_info = tk.Text(self.right_lower, wrap=tk.WORD, font=config.text_font)
         self.log_info.pack(fill=tk.BOTH, expand=True)
 
         # 初始化默认文本内容
@@ -269,7 +265,8 @@ class UavNetSimGUI:
                 n_drones=config.NUMBER_OF_DRONES,
                 update_drone_callback = self.update_drone_info,       # 传递无人机信息回调
                 update_progress_callback = self.update_progress_log,  # 传递log仿真进度回调
-                gui_canvas = self.canvas  # 传递 Tkinter Canvas
+                gui_canvas = self.canvas,  # 传递 Tkinter Canvas
+                axs= self.axs       # 传递图像对象
             )
             # 配置可视化器
             # 创建可视化器实例，设置仿真器、输出目录和可视化帧间隔（20000 微秒，即 0.02 秒）。
@@ -352,7 +349,7 @@ class UavNetSimGUI:
         def _clear_metrics_info():
             self.metrics_info.config(state=tk.NORMAL)
             self.metrics_info.delete(1.0, tk.END)
-            # self.metrics_info.insert(tk.END, "运行仿真后展示指标信息")
+            self.metrics_info.insert(tk.END, "仿真结束后展示指标信息\n")
             self.metrics_info.config(state=tk.DISABLED)
 
         def _clear_log_info():
@@ -371,6 +368,7 @@ class UavNetSimGUI:
 
         def _update():
             self.drone_info.config(state=tk.NORMAL)
+            self.drone_info.delete(1.0, tk.END)  # 清空内容
             self.drone_info.insert(tk.END, text + "\n")
             self.drone_info.see(tk.END)
             self.drone_info.config(state=tk.DISABLED)
