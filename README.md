@@ -9,7 +9,6 @@
   <img src="https://img.shields.io/badge/Contribution-Welcome-yellowgreen" height="20">
   <img src="https://img.shields.io/badge/License-MIT-brightgreen" height="20">
   <h3>让模拟对新手更友好！ </h3>
-
 </div>
 
 这个基于 Python 的仿真平台可以真实地模拟无人机网络的各种组件，包括网络层、MAC 层和物理层，以及无人机移动模型、能源模型等。此外，该平台可以轻松扩展以满足不同用户的需求并开发自己的协议。

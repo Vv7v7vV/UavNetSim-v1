@@ -106,7 +106,13 @@ class UavNetSimGUI:
         # 右上区域（控制按钮）
         self.right_upper = ttk.Frame(self.right_panel)
         self.right_upper.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        # 配置按钮容器布局
+        self.right_upper.rowconfigure((0,1,2,3), weight=1, uniform="button_rows")  # 均匀分配行高
+        self.right_upper.columnconfigure(0, weight=1)  # 单列布局
+        self.right_upper.grid_propagate(False)  # 禁止自动调整尺寸
         self.setup_controls()
+        # 添加事件绑定以动态调整尺寸
+        self.right_panel.bind('<Configure>', self._adjust_right_upper_size)
 
         # 右下区域（运行日志）
         self.right_lower = ttk.LabelFrame(self.right_panel, text="运行日志")
@@ -142,32 +148,62 @@ class UavNetSimGUI:
         # self.print_layout()
 
     def setup_controls(self):
-        """初始化控制按钮（放大按钮尺寸）"""
+        """初始化控制按钮 - 现代化简约风格"""
         style = ttk.Style()
-        style.configure("Big.TButton",
-                       font=self.title_font,
-                       padding=10,
-                       width=15)
+
+        # 基础按钮样式
+        style.configure("TButton",
+                        font=('Microsoft YaHei', 12),  # 更现代的中文字体
+                        borderwidth=1,
+                        relief="flat",  # 扁平化设计
+                        padding=6,
+                        width=15
+                        )
+
+        # 按钮样式
+        style.map("My.TButton",
+                  foreground=[('active', '#333333'), ('!active', '#666666')],
+                  background=[
+                      ('active', '#F0F0F0'),  # 悬停色
+                      ('!active', '#F8F8F8')  # 常态色
+                  ]
+                  )
+        style.configure("My.TButton",
+                        background='#F8F8F8',
+                        foreground='#666666',
+                        borderwidth=0
+                        )
 
         buttons = [
-            ("开始仿真", self.start_simulation),
-            ("重置参数", lambda: self.log("重置功能待实现")),
-            ("修改参数", lambda: self.log("功能待实现")),
-            ("选择模型", lambda: self.log("功能待实现"))
+            ("开始仿真", self.start_simulation, "My.TButton"),
+            ("修改参数", lambda: self.log("功能待实现"), "My.TButton"),
+            ("选择模型", lambda: self.log("功能待实现"), "My.TButton"),
+            ("查看日志", lambda: self.log("重置功能待实现"), "My.TButton")
         ]
-
-        for i, (text, cmd) in enumerate(buttons):
+        # 添加尺寸约束配置
+        style.configure("My.TButton", 
+            width=12,  # 基准宽度（字符单位）
+            anchor="center",  # 文字居中
+            padding=(10, 6)  # 横向/纵向内边距
+        )
+        
+        # 配置按钮容器弹性布局
+        self.right_upper.rowconfigure((0,1,2,3), weight=1)
+        self.right_upper.columnconfigure(0, weight=1)
+        for i, (text, cmd, style_name) in enumerate(buttons):
             btn = ttk.Button(
                 self.right_upper,
                 text=text,
                 command=cmd,
-                style="Big.TButton"
+                style=style_name
             )
-            btn.grid(row=i, column=0, sticky="ew", pady=5)  # 使用grid布局
+            btn.grid(row=i, column=0, sticky="nsew", pady=2)
+            # 添加动态约束
+            btn.configure(padding=(0, 4))  # 减少纵向间距
 
         # 配置按钮区域权重
         self.right_upper.columnconfigure(0, weight=1)
-        self.right_upper.rowconfigure(tuple(range(4)), weight=1)
+        self.right_upper.rowconfigure(tuple(range(4)), weight=1, uniform="button_row")
 
     def _init_default_text(self):
         """初始化左侧文本内容"""
@@ -326,6 +362,16 @@ class UavNetSimGUI:
         self.main_frame.columnconfigure(0, minsize=int(total_width * 2 / 7))
         self.main_frame.columnconfigure(1, minsize=int(total_width * 4 / 7))
         self.main_frame.columnconfigure(2, minsize=int(total_width * 1 / 7))
+
+    def _adjust_right_upper_size(self, event=None):
+        max_height = 240  # 设置行高最大总和为400像素（每行100像素）
+        current_height = self.right_panel.winfo_height()
+        new_height = min(current_height, max_height)
+        # 设置右侧按钮区域的高度
+        self.right_upper.config(height=new_height)
+        # 更新布局以确保生效
+        self.right_upper.update_idletasks()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
