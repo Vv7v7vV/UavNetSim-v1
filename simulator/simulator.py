@@ -26,8 +26,16 @@ class Simulator:
         drones：一个列表，包含所有无人机实例。
     """
 
-    def __init__(self, seed, env, channel_states, n_drones, total_simulation_time=config.SIM_TIME, gui_canvas=None):
-        self.gui_canvas = gui_canvas  # 新增参数
+    def __init__(self,
+                 seed,
+                 env,
+                 channel_states,
+                 n_drones,
+                 total_simulation_time=config.SIM_TIME,
+                 update_drone_callback=None,
+                 update_progress_callback=None,  # 新增进度回调
+                 gui_canvas=None):
+
         self.env = env
         self.seed = seed
         self.total_simulation_time = total_simulation_time  # total simulation time (ns)
@@ -41,6 +49,9 @@ class Simulator:
         # NOTE: if distributed optimization is adopted, remember to comment this to speed up simulation
         # self.central_controller = CentralController(self)
 
+        self.gui_canvas = gui_canvas  # 新增参数
+        self.update_drone_callback = update_drone_callback
+        self.update_progress_callback = update_progress_callback
 
         # 生成无人机的初始位置。
         start_position = start_coords.get_random_start_point_3d(seed)
@@ -53,9 +64,16 @@ class Simulator:
             else:
                 speed = 10
 
-            print(f'无人机: {i}, '
-                  f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}) , '
-                  f' 速度:{speed}')
+            info = (
+                f'无人机: {i}, '
+                f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}), '
+                f'速度: {speed}'
+            )
+            if self.gui_canvas:
+                if self.update_drone_callback:
+                    self.update_drone_callback(info)
+            else:
+                print(info)  # 非GUI模式直接输出到控制台
 
             drone = Drone(env=env, node_id=i, coords=start_position[i], speed=speed,
                           inbox=self.channel.create_inbox_for_receiver(i), simulator=self)
@@ -71,8 +89,12 @@ class Simulator:
     def show_time(self):
         total_simulation_time_s = self.total_simulation_time/1e6
         while True:
-            print('仿真进度：',self.env.now / 1e6,'s/', total_simulation_time_s, 's.')
-            yield self.env.timeout(0.5*1e6)  # the simulation process is displayed every 0.5s
+            progress_msg = f'仿真进度：{self.env.now / 1e6:.1f} s / {total_simulation_time_s:.1f} s'
+            if self.gui_canvas:
+                self.update_progress_callback(progress_msg)  # GUI模式调用回调
+            else:
+                print(progress_msg)  # 控制台模式使用\r实现原地刷新
+            yield self.env.timeout(0.5*1e6)
 
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)

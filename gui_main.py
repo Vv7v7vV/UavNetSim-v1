@@ -181,7 +181,7 @@ class UavNetSimGUI:
             ("开始仿真", self.start_simulation, "My.TButton"),
             ("修改参数", lambda: self.log("功能待实现"), "My.TButton"),
             ("选择模型", lambda: self.log("功能待实现"), "My.TButton"),
-            ("查看日志", lambda: self.log("重置功能待实现"), "My.TButton")
+            ("查看日志", lambda: self.log("日志功能待实现"), "My.TButton")
         ]
         # 添加尺寸约束配置
         style.configure("My.TButton", 
@@ -215,6 +215,7 @@ class UavNetSimGUI:
         self.right_upper.rowconfigure((0, 1, 2, 3), weight=1, uniform="button_row")
         self.right_upper.columnconfigure(0, weight=1)
 
+
     def _init_default_text(self):
         """初始化左侧文本内容"""
         # 无人机初始化数据
@@ -230,6 +231,7 @@ class UavNetSimGUI:
         # 初始化日志
         self.log("系统初始化完成")
         self.log("等待用户操作...")
+        self.log_info.config(state=tk.DISABLED)
 
     def log(self, message):
         """向日志区域添加信息"""
@@ -242,6 +244,9 @@ class UavNetSimGUI:
         """启动仿真线程"""
         # self.run_btn.config(state=tk.DISABLED)
         # self.status_label.config(text="运行中...")
+
+        # 清空信息区域
+        self.clear_info_areas()
 
         # 启动仿真线程（确保先初始化visualizer）
         self.sim_thread = Thread(target=self.run_simulation)
@@ -262,7 +267,9 @@ class UavNetSimGUI:
                 env=env,
                 channel_states=channel_states,
                 n_drones=config.NUMBER_OF_DRONES,
-                gui_canvas=self.canvas  # 传递 Tkinter Canvas
+                update_drone_callback = self.update_drone_info,       # 传递无人机信息回调
+                update_progress_callback = self.update_progress_log,  # 传递log仿真进度回调
+                gui_canvas = self.canvas  # 传递 Tkinter Canvas
             )
             # 配置可视化器
             # 创建可视化器实例，设置仿真器、输出目录和可视化帧间隔（20000 微秒，即 0.02 秒）。
@@ -280,9 +287,14 @@ class UavNetSimGUI:
             # 传递 canvas 引用到 visualizer
             self.visualizer.gui_canvas = self.canvas
             # 确保visualizer不为None
-            assert self.visualizer is not None, "Visualizer初始化失败"
+            assert self.visualizer is not None, self.log("Visualizer初始化失败")
+
+            # 启动可视化过程，开始显示仿真过程中的无人机分布和飞行轨迹。
+            # self.visualizer.run_visualization()
+
 
             def simulation_process():
+                # 运行仿真，直到达到配置文件中指定的仿真时间（SIM_TIME）。
                 env.run(until=config.SIM_TIME)
                 # 最终化处理
                 self.visualizer.finalize()
@@ -301,6 +313,121 @@ class UavNetSimGUI:
         """检查线程状态"""
         if self.sim_thread.is_alive():
             self.master.after(100, self.check_thread)
+
+
+
+    def print_layout(self):
+        left = self.left_panel.winfo_width()
+        center = self.vis_frame.winfo_width()
+        right = self.right_panel.winfo_width()
+        print(
+            f"比例 | 左:{left} | 中:{center} | 右:{right} | 实际比例:{left / center:.1f}:{center / center:.1f}:{right / center:.1f}")
+        self.master.after(1000, self.print_layout)
+
+    def _on_window_resize(self, event):
+        total_width = self.main_frame.winfo_width()
+        # 强制按比例分配
+        self.main_frame.columnconfigure(0, minsize=int(total_width * 2 / 7))
+        self.main_frame.columnconfigure(1, minsize=int(total_width * 4 / 7))
+        self.main_frame.columnconfigure(2, minsize=int(total_width * 1 / 7))
+
+    def _adjust_right_upper_size(self, event=None):
+        max_height = 240  # 设置行高最大总和为400像素（每行100像素）
+        current_height = self.right_panel.winfo_height()
+        new_height = min(current_height, max_height)
+        # 设置右侧按钮区域的高度
+        self.right_upper.config(height=new_height)
+        # 更新布局以确保生效
+        self.right_upper.update_idletasks()
+
+    def clear_info_areas(self):
+        """清空无人机信息和性能指标区域"""
+
+        def _clear_drone_info():
+            self.drone_info.config(state=tk.NORMAL)
+            self.drone_info.delete(1.0, tk.END)  # 清空内容
+            # self.drone_info.insert(tk.END, "运行仿真后展示无人机信息")  # 恢复默认提示
+            self.drone_info.config(state=tk.DISABLED)
+
+        def _clear_metrics_info():
+            self.metrics_info.config(state=tk.NORMAL)
+            self.metrics_info.delete(1.0, tk.END)
+            # self.metrics_info.insert(tk.END, "运行仿真后展示指标信息")
+            self.metrics_info.config(state=tk.DISABLED)
+
+        def _clear_log_info():
+            self.log_info.config(state=tk.NORMAL)
+            self.log_info.delete(1.0, tk.END)
+            self.log_info.insert(tk.END, "开始仿真：\n")
+            self.log_info.config(state=tk.DISABLED)
+
+        # 确保在主线程执行
+        self.master.after(0, _clear_drone_info)
+        self.master.after(0, _clear_metrics_info)
+        self.master.after(0, _clear_log_info)
+
+    def update_drone_info(self, text):
+        """线程安全更新无人机信息区域"""
+
+        def _update():
+            self.drone_info.config(state=tk.NORMAL)
+            self.drone_info.insert(tk.END, text + "\n")
+            self.drone_info.see(tk.END)
+            self.drone_info.config(state=tk.DISABLED)
+
+        self.master.after(0, _update)  # 确保在主线程执行
+
+    def update_progress_log(self, message):
+        """在同一行更新仿真进度（覆盖前一条）"""
+
+        def _update():
+            # 1. 解除日志框的只读状态
+            self.log_info.config(state=tk.NORMAL)
+            
+            # 2. 获取当前全部日志内容（从第1行第0列到末尾）
+            content = self.log_info.get("1.0", tk.END)
+            
+            # 3. 按换行符分割成列表（注意最后会有空字符串）
+            lines = content.split("\n")  # 示例：["line1", "line2", ""]
+            
+            # 4. 初始化目标行号为-1（表示未找到）
+            target_line = -1
+            for idx, line in enumerate(lines):
+                if "仿真进度" in line:
+                    target_line = idx + 1  # Tkinter行号从1开始
+
+            # 如果找到旧进度行，则删除并替换
+            if target_line != -1:
+                # 删除旧行内容（例如："3.0"表示第3行）
+                self.log_info.delete(f"{target_line}.0", f"{target_line}.end")
+                
+                # 9. 在删除位置插入新内容（保留原有行号）
+                self.log_info.insert(f"{target_line}.0", f"> {message}\n")
+            else:
+                # 10. 未找到时追加新行（正常插入）
+                self.log_info.insert(tk.END, f"> {message}\n")
+            
+            # 11. 自动滚动到最新内容
+            self.log_info.see(tk.END)
+            
+            # 12. 恢复只读状态
+            self.log_info.config(state=tk.DISABLED)
+        
+        # 13. 通过主线程队列保证线程安全
+        self.master.after(0, _update)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def process_plot_queue(self):
         """主线程定期处理绘图队列"""
@@ -348,31 +475,6 @@ class UavNetSimGUI:
             self.current_frame += 1
             # 每100ms更新一帧（可根据GIF实际帧率调整）
             self.master.after(100, self.animate_gif)
-
-    def print_layout(self):
-        left = self.left_panel.winfo_width()
-        center = self.vis_frame.winfo_width()
-        right = self.right_panel.winfo_width()
-        print(
-            f"比例 | 左:{left} | 中:{center} | 右:{right} | 实际比例:{left / center:.1f}:{center / center:.1f}:{right / center:.1f}")
-        self.master.after(1000, self.print_layout)
-
-    def _on_window_resize(self, event):
-        total_width = self.main_frame.winfo_width()
-        # 强制按比例分配
-        self.main_frame.columnconfigure(0, minsize=int(total_width * 2 / 7))
-        self.main_frame.columnconfigure(1, minsize=int(total_width * 4 / 7))
-        self.main_frame.columnconfigure(2, minsize=int(total_width * 1 / 7))
-
-    def _adjust_right_upper_size(self, event=None):
-        max_height = 240  # 设置行高最大总和为400像素（每行100像素）
-        current_height = self.right_panel.winfo_height()
-        new_height = min(current_height, max_height)
-        # 设置右侧按钮区域的高度
-        self.right_upper.config(height=new_height)
-        # 更新布局以确保生效
-        self.right_upper.update_idletasks()
-
 
     def check_thread_and_start_gif(self):
         """检查仿真线程是否完成，完成后启动GIF生成"""
