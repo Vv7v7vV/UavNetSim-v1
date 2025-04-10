@@ -94,8 +94,8 @@ class UavNetSimGUI:
         # ========== 右侧面板 ==========
         self.right_panel = ttk.Frame(self.main_frame)
         self.right_panel.grid(row=0, column=2, sticky="nsew")
-        self.right_panel.grid_propagate(False)  # 禁止自动调整尺寸
-        self.right_panel.config(width=300)  # 设置固定基础宽度
+        # self.right_panel.grid_propagate(False)  # 禁止自动调整尺寸
+        # self.right_panel.config(width=300)  # 设置固定基础宽度
         self.right_panel.columnconfigure(0, weight=1, minsize=200)  # 动态约束
 
         # 配置右面板行权重（上:下 = 1:1）
@@ -109,10 +109,10 @@ class UavNetSimGUI:
         # 配置按钮容器布局
         self.right_upper.rowconfigure((0,1,2,3), weight=1, uniform="button_rows")  # 均匀分配行高
         self.right_upper.columnconfigure(0, weight=1)  # 单列布局
-        self.right_upper.grid_propagate(False)  # 禁止自动调整尺寸
+        # self.right_upper.grid_propagate(False)  # 禁止自动调整尺寸
         self.setup_controls()
         # 添加事件绑定以动态调整尺寸
-        self.right_panel.bind('<Configure>', self._adjust_right_upper_size)
+        # self.right_panel.bind('<Configure>', self._adjust_right_upper_size)
 
         # 右下区域（运行日志）
         self.right_lower = ttk.LabelFrame(self.right_panel, text="运行日志")
@@ -168,10 +168,13 @@ class UavNetSimGUI:
                       ('!active', '#F8F8F8')  # 常态色
                   ]
                   )
+        # 配置按钮最大尺寸和居中
         style.configure("My.TButton",
-                        background='#F8F8F8',
-                        foreground='#666666',
-                        borderwidth=0
+                        width=15,  # 基准宽度（字符单位）
+                        anchor="center",  # 文字居中
+                        padding=(10, 6),  # 内边距
+                        wraplength=200,  # 自动换行避免溢出
+                        maxwidth=200  # 最大宽度（像素）
                         )
 
         buttons = [
@@ -188,8 +191,7 @@ class UavNetSimGUI:
         )
         
         # 配置按钮容器弹性布局
-        self.right_upper.rowconfigure((0,1,2,3), weight=1)
-        self.right_upper.columnconfigure(0, weight=1)
+
         for i, (text, cmd, style_name) in enumerate(buttons):
             btn = ttk.Button(
                 self.right_upper,
@@ -197,13 +199,21 @@ class UavNetSimGUI:
                 command=cmd,
                 style=style_name
             )
-            btn.grid(row=i, column=0, sticky="nsew", pady=2)
+            btn.grid(
+                row=i,
+                column=0,
+                sticky="nsew",
+                pady=5,  # 上下间距5像素
+                padx=10  # 左右间距10像素
+            )
+
             # 添加动态约束
             btn.configure(padding=(0, 4))  # 减少纵向间距
 
         # 配置按钮区域权重
+        # 配置行和列的权重
+        self.right_upper.rowconfigure((0, 1, 2, 3), weight=1, uniform="button_row")
         self.right_upper.columnconfigure(0, weight=1)
-        self.right_upper.rowconfigure(tuple(range(4)), weight=1, uniform="button_row")
 
     def _init_default_text(self):
         """初始化左侧文本内容"""
@@ -239,15 +249,6 @@ class UavNetSimGUI:
 
         # 监听仿真线程完成后再启动GIF生成
         self.master.after(100, self.check_thread_and_start_gif)
-
-    def check_thread_and_start_gif(self):
-        """检查仿真线程是否完成，完成后启动GIF生成"""
-        if self.sim_thread.is_alive():
-            self.master.after(100, self.check_thread_and_start_gif)
-        else:
-            # 仿真线程完成后，启动GIF生成线程
-            self.gif_thread = Thread(target=self.generate_and_display_gif)
-            self.gif_thread.start()
 
     def run_simulation(self):
         """执行仿真任务"""
@@ -371,6 +372,16 @@ class UavNetSimGUI:
         self.right_upper.config(height=new_height)
         # 更新布局以确保生效
         self.right_upper.update_idletasks()
+
+
+    def check_thread_and_start_gif(self):
+        """检查仿真线程是否完成，完成后启动GIF生成"""
+        if self.sim_thread.is_alive():
+            self.master.after(100, self.check_thread_and_start_gif)
+        else:
+            # 仿真线程完成后，启动GIF生成线程
+            self.gif_thread = Thread(target=self.generate_and_display_gif)
+            self.gif_thread.start()
 
 
 if __name__ == "__main__":
