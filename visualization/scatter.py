@@ -80,68 +80,93 @@ matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 #         _plot()
 
 # scatter.py
-def scatter_plot(simulator, gui_canvas=None, is_3d=False, target_ax=None):
-    """支持2D/3D模式绘图"""
+
+# 在模块顶部添加状态缓存字典
+_ax_states = {}
+
+def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
+    """支持静态图与交互图的绘制模式"""
     def _plot():
-        nonlocal target_ax
-        # 创建坐标系
-        if not target_ax:
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d' if is_3d else None)
-        else:
+        nonlocal interactive
+        title = target_ax.get_title()
+        if target_ax:
             ax = target_ax
             ax.clear()
-
-        # 2D模式简化绘图
-        if not is_3d:
-            # 绘制无人机位置（2D投影）
-            for drone in simulator.drones:
-                ax.scatter(
-                    drone.coords[0],
-                    drone.coords[1],
-                    c='red',
-                    s=30,
-                    alpha=0.7,
-                    label=f'Drone {drone.identifier}'
-                )
-            # 设置2D坐标轴
-            ax.set_xlabel('X (m)')
-            ax.set_ylabel('Y (m)')
-            ax.set_xlim(0, config.MAP_LENGTH)
-            ax.set_ylim(0, config.MAP_WIDTH)
         else:
-            # 3D模式完整绘图
-            for drone1 in simulator.drones:
-                for drone2 in simulator.drones:
-                    if drone1.identifier != drone2.identifier:
-                        # 绘制无人机位置
-                        ax.scatter(
-                            drone1.coords[0], drone1.coords[1], drone1.coords[2],
-                            c='red', s=30, alpha=0.7
-                        )
-                        # 绘制通信链路
-                        distance = euclidean_distance_3d(drone1.coords, drone2.coords)
-                        if distance <= maximum_communication_range():
-                            x = [drone1.coords[0], drone2.coords[0]]
-                            y = [drone1.coords[1], drone2.coords[1]]
-                            z = [drone1.coords[2], drone2.coords[2]]
-                            ax.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
-            # 设置3D坐标轴
-            ax.set_zlim(0, config.MAP_HEIGHT)
-            ax.set_zlabel('Z (m)')
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
 
-        # GUI模式更新
-        if gui_canvas:
-            if not target_ax:  # 弹出窗口需要绑定新Canvas
-                gui_canvas.figure = fig
-                gui_canvas.draw()
-                plt.close(fig)
-            else:  # 主界面直接刷新
-                gui_canvas.draw()
+        for drone1 in simulator.drones:
+            for drone2 in simulator.drones:
+                if drone1.identifier != drone2.identifier:
+                    # 绘制无人机位置
+                    ax.scatter(
+                        drone1.coords[0], drone1.coords[1], drone1.coords[2],
+                        c='red', s=30, alpha=0.7
+                    )
+                    # 绘制通信链路
+                    distance = euclidean_distance_3d(drone1.coords, drone2.coords)
+                    if distance <= maximum_communication_range():
+                        x = [drone1.coords[0], drone2.coords[0]]
+                        y = [drone1.coords[1], drone2.coords[1]]
+                        z = [drone1.coords[2], drone2.coords[2]]
+                        ax.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
 
-    # 分派到主线程
+        # # 设置3D坐标轴
+        # ax.set_zlim(0, config.MAP_HEIGHT)
+        # ax.set_zlabel('Z (m)')
+
+        # 设置标题和坐标轴
+        ax.set_title(title, fontsize=config.fig_font_size)
+        ax.set_xlim(0, config.MAP_LENGTH)
+        ax.set_ylim(0, config.MAP_WIDTH)
+        ax.set_zlim(0, config.MAP_HEIGHT)
+        ax.set_xlabel('X (m)')
+        ax.set_ylabel('Y (m)')
+        ax.set_zlabel('Z (m)')
+
+        ax_id = id(target_ax) if target_ax else None
+
+        # 缓存无人机坐标和链路数据
+        state = {
+            "drones": [d.coords for d in simulator.drones],
+            "links": []
+        }
+
+        # 收集通信链路数据
+        for i, d1 in enumerate(simulator.drones):
+            for d2 in simulator.drones[i + 1:]:
+                if euclidean_distance_3d(d1.coords, d2.coords) <= maximum_communication_range():
+                    state["links"].append((d1.coords, d2.coords))
+
+        # 更新缓存
+        if ax_id:
+            _ax_states[ax_id] = state
+
+
+        # 非交互模式下关闭鼠标事件
+        if not interactive:
+            ax.mouse_init(rotate_btn=None, zoom_btn=None)
+
+        # GUI模式：更新Canvas
+        if gui_canvas and target_ax:
+            gui_canvas.draw()
+        elif gui_canvas:
+            gui_canvas.figure = ax.figure
+            gui_canvas.draw()
+            plt.close(ax.figure)
+        else:
+            plt.show()
+
+    # 分派任务到主线程
     if gui_canvas:
         root = gui_canvas.get_tk_widget().master
         root.after(0, _plot)
     else:
         _plot()
+
+
+# 新增状态获取函数
+def get_ax_state(ax):
+    """获取缓存的子图状态"""
+    return _ax_states.get(id(ax))

@@ -88,7 +88,7 @@ class Simulator:
             scatter_plot(
                 self,
                 gui_canvas=self.gui_canvas,
-                is_3d=False,
+                interactive=False,  # 主界面使用非交互模式
                 target_ax=axs[0]  # 传递目标子图
             )
         else:
@@ -112,7 +112,9 @@ class Simulator:
 
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)
-
+        # 更新主界面子图（不重新绘图，仅更新数据）
+        # for drone in self.drones:
+        #     self.gui_canvas.draw_idle()  # 通知Canvas刷新
         # scatter_plot(self)
         scatter_plot(self, gui_canvas=self.gui_canvas)  # 通过主线程调用
 

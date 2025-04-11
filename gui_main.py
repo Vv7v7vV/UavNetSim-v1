@@ -4,13 +4,17 @@ from tkinter import ttk, messagebox
 from threading import Thread
 import simpy
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+from phy.large_scale_fading import maximum_communication_range
 from utils import config
 from simulator.simulator import Simulator
+from utils.util_function import euclidean_distance_3d
 from visualization.scatter import scatter_plot
 from visualization.visualizer import SimulationVisualizer
 import matplotlib.pyplot as plt
 from PIL import Image, ImageTk, ImageSequence
-
+from matplotlib.collections import PathCollection
+from mpl_toolkits.mplot3d.art3d import Line3D
 
 import matplotlib
 matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
@@ -24,6 +28,7 @@ class UavNetSimGUI:
         master.title("UavNetSim-v1 Control Panel")
         master.geometry("1600x900")
         master.minsize(800, 600)  # 防止过度压缩
+
 
         # 主框架使用grid布局
         self.main_frame = ttk.Frame(master)
@@ -68,20 +73,17 @@ class UavNetSimGUI:
         positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
         titles = ["初始网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
         for idx, (pos, title) in enumerate(zip(positions, titles)):
-            # if idx == 0:  # 第一个子图改为2D
-            #     ax = self.fig.add_subplot(self.gs[pos[0], pos[1]])
-            #     ax.set_title(title, fontsize=12)
-            #     ax.grid(True)
-            #     ax.set_xlim(0, config.MAP_LENGTH)
-            #     ax.set_ylim(0, config.MAP_WIDTH)
-            # else:  # 其他子图保持3D
             ax = self.fig.add_subplot(self.gs[pos[0], pos[1]], projection='3d')
             ax.grid(True)
-            ax.set_title(title, fontsize=12)
-            ax.view_init(elev=30, azim=45)
+            ax.set_title(title, fontsize=config.fig_font_size)
+            # ax.view_init(elev=30, azim=45)
             ax.set_xlim(0, config.MAP_LENGTH)
             ax.set_ylim(0, config.MAP_WIDTH)
             ax.set_zlim(0, config.MAP_HEIGHT)
+            ax.set_xlabel('X (m)')
+            ax.set_ylabel('Y (m)')
+            ax.set_zlabel('Z (m)')
+
             self.axs.append(ax)
         # for pos, title in zip(positions, titles):
         #     ax = self.fig.add_subplot(
@@ -102,8 +104,8 @@ class UavNetSimGUI:
         # 创建唯一Canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        # 绑定2D子图点击事件
-        self.canvas.mpl_connect('button_press_event', self.on_2d_plot_click)
+        # 绑定Canvas点击事件
+        self.canvas.get_tk_widget().bind("<Button-1>", self.on_canvas_click)
 
         self.canvas.draw()  # 立即渲染空白图像
 
@@ -143,12 +145,8 @@ class UavNetSimGUI:
         self.sim = None
         self.visualizer = None
         self.sim_thread = None
+        self.sim_running = False  # 新增仿真状态标志
 
-        # self.fig = plt.figure(figsize=(18, 6))
-        # self.ax_data = self.fig.add_subplot(121, projection='3d')
-        # self.ax_ack = self.fig.add_subplot(122, projection='3d')
-        # self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
-        # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # 添加线程安全队列
         self.plot_queue = []
@@ -261,6 +259,7 @@ class UavNetSimGUI:
         # self.run_btn.config(state=tk.DISABLED)
         # self.status_label.config(text="运行中...")
 
+        self.sim_running = True  # 标记仿真已启动
         # 清空信息区域
         self.clear_info_areas()
 
@@ -401,7 +400,10 @@ class UavNetSimGUI:
         def _update():
             # 1. 解除日志框的只读状态
             self.log_info.config(state=tk.NORMAL)
-            
+
+            # 添加红色文本标签
+            self.log_info.tag_config('progress', foreground='red')
+
             # 2. 获取当前全部日志内容（从第1行第0列到末尾）
             content = self.log_info.get("1.0", tk.END)
             
@@ -420,10 +422,10 @@ class UavNetSimGUI:
                 self.log_info.delete(f"{target_line}.0", f"{target_line}.end")
                 
                 # 9. 在删除位置插入新内容（保留原有行号）
-                self.log_info.insert(f"{target_line}.0", f"> {message}\n")
+                self.log_info.insert(f"{target_line}.0", f"> {message}\n", 'progress')
             else:
                 # 10. 未找到时追加新行（正常插入）
-                self.log_info.insert(tk.END, f"> {message}\n")
+                self.log_info.insert(tk.END, f"> {message}\n", 'progress')
             
             # 11. 自动滚动到最新内容
             self.log_info.see(tk.END)
@@ -434,31 +436,135 @@ class UavNetSimGUI:
         # 13. 通过主线程队列保证线程安全
         self.master.after(0, _update)
 
-    def on_2d_plot_click(self, event):
-        """点击2D图时弹出3D窗口"""
-        if event.inaxes != self.axs[0]:
-            return
+    def on_canvas_click(self, event):
+        """点击Canvas时判断具体子图"""
+        if not self.sim_running:
+            return  # 仿真未运行，直接返回
+        # 将点击坐标转换为图形坐标
+        x, y = event.x, event.y
+        # 遍历所有子图，检查点击位置
+        for idx, ax in enumerate(self.axs):
+            bbox = ax.bbox
+            # 注意：Tkinter坐标原点在左上角，而Matplotlib的bbox是左下角
+            if ((bbox.x0 < x < bbox.x1) and (self.canvas.get_tk_widget().winfo_height() - bbox.y1
+                                             < y <
+                                             self.canvas.get_tk_widget().winfo_height() - bbox.y0)):
 
-        # 创建弹出窗口
+                self.open_interactive_view(ax,idx)
+                break
+
+    def open_interactive_view(self, target_ax, target_idx):
+        """打开可交互窗口，并传递仿真数据"""
         popup = tk.Toplevel(self.master)
-        popup.title("3D网络拓扑视图")
-        popup.geometry("800x600")
+        popup.title("交互式视图 - " + target_ax.get_title())
 
-        # 创建3D Canvas
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        # 创建新Canvas并绑定仿真数据
+        fig = plt.figure(figsize=(16, 12))
+        ax_new = fig.add_subplot(111, projection='3d')
         canvas = FigureCanvasTkAgg(fig, master=popup)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # 调用3D绘图
-        scatter_plot(
-            self.sim,
-            gui_canvas=canvas,
-            is_3d=True,
-            target_ax=ax
-        )
+        # # 直接基于仿真数据重新绘制
+        # self._draw_interactive_view(ax_new)
+        # canvas.draw()
+        from visualization.scatter import get_ax_state
+        cached_state = get_ax_state(target_ax)
 
+        if cached_state:
+            # 使用缓存数据重建图形
+            ax_new.clear()
+            # 绘制无人机
+            for coords in cached_state["drones"]:
+                ax_new.scatter(*coords, c='red', s=30, alpha=0.7)
+            # 绘制链路
+            for link in cached_state["links"]:
+                x = [link[0][0], link[1][0]]
+                y = [link[0][1], link[1][1]]
+                z = [link[0][2], link[1][2]]
+                ax_new.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
+            canvas.draw()
+        # 设置标题和坐标轴
+        ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)
+        ax_new.set_xlim(0, config.MAP_LENGTH)
+        ax_new.set_ylim(0, config.MAP_WIDTH)
+        ax_new.set_zlim(0, config.MAP_HEIGHT)
+        ax_new.set_xlabel('X (m)')
+        ax_new.set_ylabel('Y (m)')
+        ax_new.set_zlabel('Z (m)')
 
+    # def _draw_interactive_view(self, ax):
+    #     """在指定Axes上绘制无人机和链路（使用最新仿真数据）"""
+    #     ax.clear()
+    #     if not self.sim:
+    #         return
+    #
+    #     # 绘制无人机节点（红色）
+    #     for drone in self.sim.drones:
+    #         ax.scatter(
+    #             drone.coords[0], drone.coords[1], drone.coords[2],
+    #             c='red', s=30, alpha=0.7
+    #         )
+    #
+    #     # 绘制通信链路（黑色虚线）
+    #     for drone1 in self.sim.drones:
+    #         for drone2 in self.sim.drones:
+    #             if drone1.identifier != drone2.identifier:
+    #                 distance = euclidean_distance_3d(drone1.coords, drone2.coords)
+    #                 if distance <= maximum_communication_range():
+    #                     x = [drone1.coords[0], drone2.coords[0]]
+    #                     y = [drone1.coords[1], drone2.coords[1]]
+    #                     z = [drone1.coords[2], drone2.coords[2]]
+    #                     ax.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
+    #
+    #     # 设置坐标轴
+    #     ax.set_xlim(0, config.MAP_LENGTH)
+    #     ax.set_ylim(0, config.MAP_WIDTH)
+    #     ax.set_zlim(0, config.MAP_HEIGHT)
+    #     ax.set_title("交互式网络拓扑视图")
+    #     ax.set_xlabel('X (m)')
+    #     ax.set_ylabel('Y (m)')
+    #     ax.set_zlabel('Z (m)')
+    #
+    # def copy_axes_content(self, src_ax, dst_ax):
+    #     """深度复制子图内容（包含无人机和链路）"""
+    #     # 清空目标子图
+    #     dst_ax.clear()
+    #
+    #     # 复制所有图形元素
+    #     for artist in src_ax.get_children():
+    #         # 复制散点图（PathCollection）
+    #         if isinstance(artist, PathCollection):
+    #             # 提取3D坐标（直接使用无人机坐标）
+    #             offsets = artist.get_offsets()
+    #             # 显式设置颜色为红色，忽略原图的cmap
+    #             if offsets.size > 0:
+    #                 # 提取3D坐标（PathCollection的offsets是2D数组，需手动添加z轴）
+    #                 z = artist.get_3d_properties() if hasattr(artist, 'get_3d_properties') else 0
+    #                 dst_ax.scatter(
+    #                     offsets[:, 0],
+    #                     offsets[:, 1],
+    #                     z,  # 正确传递z轴数据
+    #                     # c='red',  # 强制设置为红色
+    #                     s=artist.get_sizes(),
+    #                     alpha=artist.get_alpha()
+    #                 )
+    #         # 复制连线（Line3D）
+    #         elif isinstance(artist, Line3D):
+    #             x, y, z = artist.get_data_3d()
+    #             dst_ax.plot(
+    #                 x, y, z,
+    #                 color=artist.get_color(),
+    #                 linestyle=artist.get_linestyle(),
+    #                 linewidth=artist.get_linewidth()
+    #             )
+    #     # 复制坐标轴设置
+    #     dst_ax.set_xlim(src_ax.get_xlim())
+    #     dst_ax.set_ylim(src_ax.get_ylim())
+    #     dst_ax.set_zlim(src_ax.get_zlim())
+    #     dst_ax.set_title(src_ax.get_title(),fontsize=config.fig_font_size)
+    #     dst_ax.set_xlabel(src_ax.get_xlabel())
+    #     dst_ax.set_ylabel(src_ax.get_ylabel())
+    #     dst_ax.set_zlabel(src_ax.get_zlabel())
 
 
 
