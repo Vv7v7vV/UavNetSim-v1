@@ -10,12 +10,13 @@ text_font_size = 20
 fig_font_size = 20
 title_font = ('黑体', title_font_size)
 text_font = ('宋体', text_font_size)
+chosen_drone = 1
 
 # --------------------- simulation parameters --------------------- #
 MAP_LENGTH = 600  # m, length of the map
 MAP_WIDTH = 600  # m, width of the map
 MAP_HEIGHT = 100  # m, height of the map
-SIM_TIME = 15 * 1e6  # us, total simulation time
+SIM_TIME = 5 * 1e6  # us, total simulation time
 NUMBER_OF_DRONES = 15  # number of drones in the network
 STATIC_CASE = 0  # whether to simulate a static network
 HETEROGENEOUS = 0  # 是否支持异构网络（在速度方面），0表示不支持

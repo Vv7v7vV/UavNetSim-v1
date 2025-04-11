@@ -88,8 +88,9 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
     """支持静态图与交互图的绘制模式"""
     def _plot():
         nonlocal interactive
-        title = target_ax.get_title()
+        title = ''
         if target_ax:
+            title = target_ax.get_title()
             ax = target_ax
             ax.clear()
         else:
@@ -117,7 +118,8 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
         # ax.set_zlabel('Z (m)')
 
         # 设置标题和坐标轴
-        ax.set_title(title, fontsize=config.fig_font_size)
+        if title!='':
+            ax.set_title(title, fontsize=config.fig_font_size)
         ax.set_xlim(0, config.MAP_LENGTH)
         ax.set_ylim(0, config.MAP_WIDTH)
         ax.set_zlim(0, config.MAP_HEIGHT)

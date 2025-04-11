@@ -51,6 +51,7 @@ class Simulator:
         # self.central_controller = CentralController(self)
 
         self.gui_canvas = gui_canvas  # 新增参数
+        self.axs = axs  # 新增属性保存子图引用
         self.update_drone_callback = update_drone_callback
         self.update_progress_callback = update_progress_callback
 
@@ -112,10 +113,30 @@ class Simulator:
 
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)
+
         # 更新主界面子图（不重新绘图，仅更新数据）
         # for drone in self.drones:
         #     self.gui_canvas.draw_idle()  # 通知Canvas刷新
         # scatter_plot(self)
-        scatter_plot(self, gui_canvas=self.gui_canvas)  # 通过主线程调用
+
+        # 3图pic
+        progress_msg = '仿真结束'
+        if self.gui_canvas:
+            scatter_plot(
+                self,
+                gui_canvas=self.gui_canvas,
+                interactive=False,  # 主界面使用非交互模式
+                target_ax=self.axs[2]  # 传递目标子图
+            )
+            if self.gui_canvas:
+                self.update_progress_callback(progress_msg)  # GUI模式调用回调
+            else:
+                print(progress_msg)  # 控制台模式使用\r实现原地刷新
+        else:
+            scatter_plot(
+                self,
+                gui_canvas=self.gui_canvas,
+                target_ax=2)
+        # scatter_plot(self, gui_canvas=self.gui_canvas)  # 通过主线程调用
 
         self.metrics.print_metrics()

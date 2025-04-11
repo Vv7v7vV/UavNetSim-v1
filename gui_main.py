@@ -71,7 +71,7 @@ class UavNetSimGUI:
         # 明确定义所有子图并初始化为空3D坐标系
         self.axs = []
         positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
-        titles = ["初始网络拓扑视图", "数据包流向分析", "链路质量监测", "移动轨迹预测"]
+        titles = ["初始网络拓扑视图", "无人机路径视图", "最终网络拓扑视图", "数据包传输视图"]
         for idx, (pos, title) in enumerate(zip(positions, titles)):
             ax = self.fig.add_subplot(self.gs[pos[0], pos[1]], projection='3d')
             ax.grid(True)
@@ -464,33 +464,89 @@ class UavNetSimGUI:
         canvas = FigureCanvasTkAgg(fig, master=popup)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+
+
         # # 直接基于仿真数据重新绘制
         # self._draw_interactive_view(ax_new)
         # canvas.draw()
-        from visualization.scatter import get_ax_state
-        cached_state = get_ax_state(target_ax)
 
-        if cached_state:
-            # 使用缓存数据重建图形
-            ax_new.clear()
-            # 绘制无人机
-            for coords in cached_state["drones"]:
-                ax_new.scatter(*coords, c='red', s=30, alpha=0.7)
-            # 绘制链路
-            for link in cached_state["links"]:
-                x = [link[0][0], link[1][0]]
-                y = [link[0][1], link[1][1]]
-                z = [link[0][2], link[1][2]]
-                ax_new.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
-            canvas.draw()
-        # 设置标题和坐标轴
-        ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)
-        ax_new.set_xlim(0, config.MAP_LENGTH)
-        ax_new.set_ylim(0, config.MAP_WIDTH)
-        ax_new.set_zlim(0, config.MAP_HEIGHT)
-        ax_new.set_xlabel('X (m)')
-        ax_new.set_ylabel('Y (m)')
-        ax_new.set_zlabel('Z (m)')
+        if target_idx == 0 or target_idx == 2:
+            from visualization.scatter import get_ax_state
+
+            cached_state = get_ax_state(target_ax)
+
+            if cached_state:
+                # 使用缓存数据重建图形
+                ax_new.clear()
+                # 绘制无人机
+                for coords in cached_state["drones"]:
+                    ax_new.scatter(*coords, c='red', s=30, alpha=0.7)
+                # 绘制链路
+                for link in cached_state["links"]:
+                    x = [link[0][0], link[1][0]]
+                    y = [link[0][1], link[1][1]]
+                    z = [link[0][2], link[1][2]]
+                    ax_new.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
+                canvas.draw()
+            # 设置标题和坐标轴
+            ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)
+            ax_new.set_xlim(0, config.MAP_LENGTH)
+            ax_new.set_ylim(0, config.MAP_WIDTH)
+            ax_new.set_zlim(0, config.MAP_HEIGHT)
+            ax_new.set_xlabel('X (m)')
+            ax_new.set_ylabel('Y (m)')
+            ax_new.set_zlabel('Z (m)')
+
+        if target_idx == 1:
+            # 获取无人机轨迹数据
+            if self.sim and len(self.sim.drones) > 1:  # 假设显示无人机1的轨迹
+                trajectory = self.sim.drones[1].mobility_model.trajectory
+
+                if trajectory:
+                    ax_new.clear()
+
+                    # 提取三维坐标
+                    x = [p[0] for p in trajectory]
+                    y = [p[1] for p in trajectory]
+                    z = [p[2] for p in trajectory]
+
+                    # 提取三维坐标数据
+                    x_coords = [p[0] for p in trajectory]
+                    y_coords = [p[1] for p in trajectory]
+                    z_coords = [p[2] for p in trajectory]
+
+                    # 绘制轨迹
+                    ax_new.plot(x_coords, y_coords, z_coords,
+                            color='blue', linewidth=2, alpha=0.8)
+
+                    # 计算动态范围（包含10%的边距）
+                    margin_ratio = 0.1
+                    x_min, x_max = self._get_axis_range(x_coords, margin_ratio)
+                    y_min, y_max = self._get_axis_range(y_coords, margin_ratio)
+                    z_min, z_max = self._get_axis_range(z_coords, margin_ratio)
+                    # 绘制轨迹
+                    ax_new.plot(x, y, z,
+                                color='blue',
+                                linewidth=2,
+                                alpha=0.8,
+                                label=f'无人机 {config.chosen_drone} 运动轨迹')
+
+                    # 设置动态坐标轴
+                    ax_new.set_xlim(x_min, x_max)
+                    ax_new.set_ylim(y_min, y_max)
+                    ax_new.set_zlim(z_min, z_max)
+
+                    ax_new.set_xlabel('X (m)')
+                    ax_new.set_ylabel('Y (m)')
+                    ax_new.set_zlabel('Z (m)')
+                    ax_new.legend()
+
+                    # 设置视角
+                    # ax_new.view_init(elev=30, azim=45)
+
+                    canvas.draw()
+
+
 
     # def _draw_interactive_view(self, ax):
     #     """在指定Axes上绘制无人机和链路（使用最新仿真数据）"""
@@ -566,6 +622,26 @@ class UavNetSimGUI:
     #     dst_ax.set_ylabel(src_ax.get_ylabel())
     #     dst_ax.set_zlabel(src_ax.get_zlabel())
 
+    def _get_axis_range(self, values, margin_ratio=0.1):
+        """根据数据计算带边距的坐标轴范围"""
+        if not values:  # 空数据时返回默认范围
+            return 0, config.MAP_LENGTH
+
+        v_min = min(values)
+        v_max = max(values)
+        span = v_max - v_min
+
+        # 处理所有点相同的情况
+        if span == 0:
+            span = config.MAP_LENGTH * 0.1  # 默认使用10%的地图长度
+            v_min -= span / 2
+            v_max += span / 2
+        else:
+            margin = span * margin_ratio
+            v_min -= margin
+            v_max += margin
+
+        return max(0, v_min), min(v_max, config.MAP_LENGTH)
 
 
 

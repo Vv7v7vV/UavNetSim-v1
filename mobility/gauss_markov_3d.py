@@ -63,9 +63,6 @@ class GaussMarkov3D:
         self.trajectory = []
         self.my_drone.simulator.env.process(self.show_trajectory())
 
-        # 新增轨迹数据存储
-        self.trajectory_data = {'x': [], 'y': [], 'z': []}
-
     def mobility_update(self, drone):
         while True:
             env = drone.simulator.env
@@ -139,77 +136,121 @@ class GaussMarkov3D:
             energy_consumption = (self.position_update_interval / 1e6) * drone.energy_model.power_consumption(drone.speed)
             drone.residual_energy -= energy_consumption
 
-    # # plt绘图
-    # def show_trajectory(self):
-    #     x = []
-    #     y = []
-    #     z = []
-    #     yield self.my_drone.simulator.env.timeout(config.SIM_TIME-1)
-    #     if self.my_drone.identifier == 1:  # you can choose which drone's trajectory you want to check
-    #         for i in range(len(self.trajectory)):
-    #             x.append(self.trajectory[i][0])
-    #             y.append(self.trajectory[i][1])
-    #             z.append(self.trajectory[i][2])
-    #
-    #         plt.figure()
-    #         ax = plt.axes(projection='3d')
-    #         ax.set_xlim(self.min_x, self.max_x)
-    #         ax.set_ylim(self.min_y, self.max_y)
-    #         ax.set_zlim(self.min_z, self.max_z)
-    #
-    #         x = np.array(x)
-    #         y = np.array(y)
-    #         z = np.array(z)
-    #
-    #         ax.plot(x, y, z)
-    #         ax.set_xlabel('x')
-    #         ax.set_ylabel('y')
-    #         ax.set_zlabel('z')
-    #         plt.show()
-
     def show_trajectory(self):
-        yield self.my_drone.simulator.env.timeout(config.SIM_TIME - 1)
-        if self.my_drone.identifier == 1:
-            # 收集轨迹数据，不直接绘图
-            self.trajectory_data['x'] = [pos[0] for pos in self.trajectory]
-            self.trajectory_data['y'] = [pos[1] for pos in self.trajectory]
-            self.trajectory_data['z'] = [pos[2] for pos in self.trajectory]
+        yield self.my_drone.simulator.env.timeout(config.SIM_TIME-1)
+        if self.my_drone.identifier == config.chosen_drone:  # 选择要显示的无人机
+            # 通过simulator获取GUI的axes引用
+            ax = self.my_drone.simulator.axs[1] if hasattr(self.my_drone.simulator, 'axs') else None
 
-            # 通知主线程更新图形
-            if hasattr(self.my_drone.simulator, 'gui_canvas'):
-                self._schedule_plot()
+            if ax:  # GUI模式
+                ax.clear()
+                ax.set_title("无人机路径视图", fontsize=config.fig_font_size)
 
-    def _schedule_plot(self):
-        """通过主线程调度绘图"""
-        if self.my_drone.simulator.gui_canvas:
-            root = self.my_drone.simulator.gui_canvas.get_tk_widget().master.winfo_toplevel()
-            root.after(0, self._plot_trajectory)
+                # 提取三维坐标
+                x = [p[0] for p in self.trajectory]
+                y = [p[1] for p in self.trajectory]
+                z = [p[2] for p in self.trajectory]
 
-    def _plot_trajectory(self):
-        """实际绘图逻辑（在主线程执行）"""
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+                # 设置坐标轴
+                ax.set_xlim(0, config.MAP_LENGTH)
+                ax.set_ylim(0, config.MAP_WIDTH)
+                ax.set_zlim(0, config.MAP_HEIGHT)
+                ax.set_xlabel('X (m)')
+                ax.set_ylabel('Y (m)')
+                ax.set_zlabel('Z (m)')
+                ax.legend()
+                # 提取三维坐标数据
+                x_coords = [p[0] for p in self.trajectory]
+                y_coords = [p[1] for p in self.trajectory]
+                z_coords = [p[2] for p in self.trajectory]
 
-        ax.plot(
-            self.trajectory_data['x'],
-            self.trajectory_data['y'],
-            self.trajectory_data['z']
-        )
+                # 绘制轨迹
+                ax.plot(x_coords, y_coords, z_coords,
+                            color='blue', linewidth=2, alpha=0.8)
 
-        ax.set_xlim(self.min_x, self.max_x)
-        ax.set_ylim(self.min_y, self.max_y)
-        ax.set_zlim(self.min_z, self.max_z)
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_zlabel('z')
+                # # 提取三维坐标数据
+                # x_coords = [p[0] for p in self.trajectory]
+                # y_coords = [p[1] for p in self.trajectory]
+                # z_coords = [p[2] for p in self.trajectory]
+                #
+                # # 计算动态范围（包含10%的边距）
+                # margin_ratio = 0.1
+                # x_min, x_max = self._get_axis_range(x_coords, margin_ratio)
+                # y_min, y_max = self._get_axis_range(y_coords, margin_ratio)
+                # z_min, z_max = self._get_axis_range(z_coords, margin_ratio)
+                # # 绘制轨迹
+                # ax.plot(x_coords, y_coords, z_coords,
+                #         color='blue', linewidth=2, alpha=0.8)
+                #
+                # # 设置动态坐标轴
+                # ax.set_xlim(x_min, x_max)
+                # ax.set_ylim(y_min, y_max)
+                # ax.set_zlim(z_min, z_max)
+                #
+                # ax.set_xlabel('X (m)')
+                # ax.set_ylabel('Y (m)')
+                # ax.set_zlabel('Z (m)')
+                # # 绘制轨迹
+                # ax.plot(x, y, z,
+                #             color='blue',
+                #             linewidth=2,
+                #             alpha=0.8,
+                #             label=f'无人机 {config.chosen_drone} 运动轨迹')
 
-        # 集成到GUI Canvas
-        if hasattr(self.my_drone.simulator, 'gui_canvas'):
-            self.my_drone.simulator.gui_canvas.figure = fig
-            self.my_drone.simulator.gui_canvas.draw()
-            plt.close(fig)  # 关闭临时图形
+
+
+
+
+                # 通知GUI更新
+                if self.my_drone.simulator.gui_canvas:
+                    self.my_drone.simulator.gui_canvas.draw_idle()
         else:
-            plt.show()
+            x = []
+            y = []
+            z = []
+            if self.my_drone.identifier == 1:  # you can choose which drone's trajectory you want to check
+                for i in range(len(self.trajectory)):
+                    x.append(self.trajectory[i][0])
+                    y.append(self.trajectory[i][1])
+                    z.append(self.trajectory[i][2])
+
+                plt.figure()
+                ax = plt.axes(projection='3d')
+                ax.set_xlim(self.min_x, self.max_x)
+                ax.set_ylim(self.min_y, self.max_y)
+                ax.set_zlim(self.min_z, self.max_z)
+
+                x = np.array(x)
+                y = np.array(y)
+                z = np.array(z)
+
+                ax.plot(x, y, z)
+                ax.set_xlabel('x')
+                ax.set_ylabel('y')
+                ax.set_zlabel('z')
+                plt.show()
+
+    def _get_axis_range(self, values, margin_ratio=0.1):
+        """根据数据计算带边距的坐标轴范围"""
+        if not values:  # 空数据时返回默认范围
+            return 0, config.MAP_LENGTH
+
+        v_min = min(values)
+        v_max = max(values)
+        span = v_max - v_min
+
+        # 处理所有点相同的情况
+        if span == 0:
+            span = config.MAP_LENGTH * 0.1  # 默认使用10%的地图长度
+            v_min -= span / 2
+            v_max += span / 2
+        else:
+            margin = span * margin_ratio
+            v_min -= margin
+            v_max += margin
+
+        return max(0, v_min), min(v_max, config.MAP_LENGTH)
+
 
     # rebound scheme (refer to ns-3)
     def boundary_test(self, next_position, next_velocity, direction_mean, pitch_mean):

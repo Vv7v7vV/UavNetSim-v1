@@ -438,7 +438,7 @@ class SimulationVisualizer:
         if self.gui_mode and self.master:
             # 在主线程中调用散点图
             # self.gui_canvas.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
-            self.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
+            # self.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
             self.create_animations()
             self.create_interactive_visualization()
 
@@ -461,10 +461,10 @@ class SimulationVisualizer:
             if self.gui_canvas:
                 self.gui_canvas.draw_idle()
 
-    def _safe_scatter_plot(self):
-        """线程安全的散点图绘制"""
-        from visualization.scatter import scatter_plot
-        scatter_plot(self.simulator, gui_canvas=self.gui_canvas)
+    # def _safe_scatter_plot(self):
+    #     """线程安全的散点图绘制"""
+    #     from visualization.scatter import scatter_plot
+    #     scatter_plot(self.simulator, gui_canvas=self.gui_canvas)
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""
