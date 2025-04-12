@@ -63,6 +63,8 @@ class UavNetSimGUI:
         # ========== 中间可视化区域 ==========
         self.vis_frame = ttk.Frame(self.main_frame)
         self.vis_frame.grid(row=0, column=1, sticky="nsew")
+        self.vis_frame.rowconfigure(0, weight=1)  # 行权重设为1
+        self.vis_frame.columnconfigure(0, weight=1)  # 列权重设为1
 
         # 创建4个子图（保持原有代码）
         self.fig = plt.figure(figsize=(16, 10))
@@ -105,7 +107,7 @@ class UavNetSimGUI:
 
         # 创建唯一Canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
         # 绑定Canvas点击事件
         self.canvas.get_tk_widget().bind("<Button-1>", self.on_canvas_click)
 
