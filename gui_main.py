@@ -16,6 +16,8 @@ from PIL import Image, ImageTk, ImageSequence
 from matplotlib.collections import PathCollection
 from mpl_toolkits.mplot3d.art3d import Line3D
 
+
+
 import matplotlib
 matplotlib.rcParams['font.family'] = 'SimHei'  # 使用黑体
 matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
@@ -63,24 +65,25 @@ class UavNetSimGUI:
         # ========== 中间可视化区域 ==========
         self.vis_frame = ttk.Frame(self.main_frame)
         self.vis_frame.grid(row=0, column=1, sticky="nsew")
-        self.vis_frame.rowconfigure(0, weight=1)  # 行权重设为1
-        self.vis_frame.columnconfigure(0, weight=1)  # 列权重设为1
+        self.vis_frame.rowconfigure(0, weight=1)  # 上部子图区域
+        self.vis_frame.rowconfigure(1, weight=0)  # 下部GIF区域（固定高度）
+        self.vis_frame.columnconfigure(0, weight=1)
 
-        # 创建4个子图（保持原有代码）
+        # 创建3个子图（移除第四个子图）
+        # 创建3个子图（使用更紧凑的布局）
         self.fig = plt.figure(figsize=(16, 10))
-        self.gs = self.fig.add_gridspec(2, 3)  # 2行3列网格
-        # 明确定义所有子图并初始化为空3D坐标系
-        positions = [
-            (0, 0), (0, 1), (0, 2),  # 第一行三个
-            (1, slice(0, 3))  # 第二行跨三列
-        ]
-
-        titles = ["初始网络拓扑视图", "无人机路径视图", "最终网络拓扑视图", "数据包传输视图"]
+        self.gs = self.gs = self.fig.add_gridspec(
+            nrows=1, ncols=3,  # 单行三列
+            width_ratios=[1, 1, 1],  # 等宽分布
+            left=0.1, right=0.9,    # 左右边距各留10%
+            wspace=0.3              # 子图横向间距
+        )
+        titles = ["初始网络拓扑视图", "无人机路径视图", "最终网络拓扑视图"]
         self.axs = []
-        for idx, (pos, title) in enumerate(zip(positions, titles)):
-            ax = self.fig.add_subplot(self.gs[pos], projection='3d')
+        for idx, title in enumerate(titles):
+            ax = self.fig.add_subplot(self.gs[0, idx], projection='3d')  # 全部放在第一行
             ax.grid(True)
-            ax.set_title(title, fontsize=config.fig_font_size)
+            ax.set_title(title, fontsize=config.fig_font_size)  # 标题
             ax.set_xlim(0, config.MAP_LENGTH)
             ax.set_ylim(0, config.MAP_WIDTH)
             ax.set_zlim(0, config.MAP_HEIGHT)
@@ -89,29 +92,30 @@ class UavNetSimGUI:
             ax.set_zlabel('Z (m)')
             self.axs.append(ax)
 
-        # for pos, title in zip(positions, titles):
-        #     ax = self.fig.add_subplot(
-        #         self.gs[pos[0], pos[1]],  # 使用GridSpec索引
-        #         projection='3d'
-        #     )
-        #     # 初始化为空白3D坐标系
-        #     ax.grid(True)  # 关闭网格线
-        #     ax.axis('on')  # 隐藏坐标轴
-        #     ax.set_title(title, fontsize=config.fig_font_size)
-        #     # 设置初始视角和坐标范围（可选）
-        #     ax.view_init(elev=30, azim=45)  # 俯仰角30度，方位角45度
-        #     ax.set_xlim(0, config.MAP_LENGTH)
-        #     ax.set_ylim(0, config.MAP_WIDTH)
-        #     ax.set_zlim(0, config.MAP_HEIGHT)
-        #     self.axs.append(ax)
+        # 创建Canvas并添加垂直居中垫片
+        canvas_container = ttk.Frame(self.vis_frame)
+        canvas_container.grid(row=0, column=0, sticky="nsew")
+        canvas_container.rowconfigure(0, weight=1)
+        canvas_container.columnconfigure(0, weight=1)
 
-        # 创建唯一Canvas
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vis_frame)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=canvas_container)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        # 添加底部垫片实现垂直居中
+        ttk.Frame(canvas_container, height=20).grid(row=1, column=0)  # 调整此数值控制底部间距
         # 绑定Canvas点击事件
         self.canvas.get_tk_widget().bind("<Button-1>", self.on_canvas_click)
 
-        self.canvas.draw()  # 立即渲染空白图像
+        # GIF显示区域（固定高度）
+        self.gif_frame = ttk.Frame(self.vis_frame, height=200)  # 设置固定高度
+        self.gif_frame.grid(row=1, column=0, sticky="sew", padx=5, pady=5)
+        self.gif_label = ttk.Label(self.gif_frame)
+        self.gif_label.pack(fill=tk.BOTH, expand=True)
+        self.load_gif(r"E:\Data\lab\UavNetSim_v1\uav_network_simulation2.gif")  # 替换为实际GIF路径
+
+
+        # 关键布局配置
+        # self.fig.tight_layout(rect=[0, 0.1, 1, 0.95])  # 调整整体绘图区域位置
+        self.canvas.draw()
 
         # ========== 右侧面板 ==========
         self.right_panel = ttk.Frame(self.main_frame)
@@ -690,6 +694,41 @@ class UavNetSimGUI:
 
 
     #=============================GIF==================================
+
+
+    def load_gif(self, gif_path):
+        """加载并播放GIF"""
+        try:
+            self.gif_frames = []
+            gif = Image.open(gif_path)
+            for frame in ImageSequence.Iterator(gif):
+                frame = frame.convert('RGBA')
+                photo = ImageTk.PhotoImage(frame)
+                self.gif_frames.append(photo)
+            self.current_frame = 0
+            self.animate_gif()
+        except Exception as e:
+            self.log(f"GIF加载失败: {str(e)}")
+
+    def animate_gif(self):
+        """GIF动画循环"""
+        if self.current_frame < len(self.gif_frames):
+            self.gif_label.config(image=self.gif_frames[self.current_frame])
+            self.current_frame += 1
+        else:
+            self.current_frame = 0  # 循环播放
+        self.master.after(100, self.animate_gif)
+
+
+
+
+
+
+
+
+
+
+
 
     def process_plot_queue(self):
         """主线程定期处理绘图队列"""
