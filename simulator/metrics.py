@@ -77,3 +77,16 @@ class Metrics:
         print('平均跳数是: ', hop_cnt)
         print('冲突次数是: ', self.collision_num)
         print('平均MAC层延迟: ', average_mac_delay, 'ms')
+
+    def get_metrics_dict(self):
+        """返回指标字典"""
+        return {
+            'generated': self.datapacket_generated_num,
+            'pdr': len(self.datapacket_arrived) / self.datapacket_generated_num * 100,
+            'e2e': np.mean(list(self.deliver_time_dict.values())) / 1e3,
+            'rl': self.control_packet_num / len(self.datapacket_arrived),
+            'throughput': np.mean(list(self.throughput_dict.values())) / 1e3,
+            'hop': np.mean(list(self.hop_cnt_dict.values())),
+            'collision': self.collision_num,
+            'mac_delay': np.mean(self.mac_delay)
+        }

@@ -25,7 +25,7 @@ class UavNetSimGUI:
 
     def __init__(self, master):
         self.master = master
-        master.title("UavNetSim-v1 Control Panel")
+        master.title("无人机资源调度仿真平台")
         master.geometry("1600x900")
         master.minsize(800, 600)  # 防止过度压缩
 
@@ -284,6 +284,7 @@ class UavNetSimGUI:
                 n_drones=config.NUMBER_OF_DRONES,
                 update_drone_callback = self.update_drone_info,       # 传递无人机信息回调
                 update_progress_callback = self.update_progress_log,  # 传递log仿真进度回调
+                update_metrics_callback=self.update_metrics_info,     # 新增回调
                 gui_canvas = self.canvas,  # 传递 Tkinter Canvas
                 axs= self.axs       # 传递图像对象
             )
@@ -422,18 +423,37 @@ class UavNetSimGUI:
                 self.log_info.delete(f"{target_line}.0", f"{target_line}.end")
                 
                 # 9. 在删除位置插入新内容（保留原有行号）
-                self.log_info.insert(f"{target_line}.0", f"> {message}\n", 'progress')
+                self.log_info.insert(f"{target_line}.0", f"> {message}", 'progress')
             else:
                 # 10. 未找到时追加新行（正常插入）
                 self.log_info.insert(tk.END, f"> {message}\n", 'progress')
             
             # 11. 自动滚动到最新内容
-            self.log_info.see(tk.END)
+            # self.log_info.see(tk.END)
             
             # 12. 恢复只读状态
             self.log_info.config(state=tk.DISABLED)
         
         # 13. 通过主线程队列保证线程安全
+        self.master.after(0, _update)
+
+    def update_metrics_info(self, metrics):
+        """更新性能指标区域"""
+
+        def _update():
+            text = f"""数据包投递率(PDR): {metrics['pdr']:.2f}%
+                        平均端到端延迟(E2E): {metrics['e2e']:.2f} ms
+                        路由负载(RL): {metrics['rl']:.2f}
+                        平均吞吐量: {metrics['throughput']:.2f} Kbps
+                        平均跳数: {metrics['hop']:.2f}
+                        冲突次数: {metrics['collision']}
+                        平均MAC延迟: {metrics['mac_delay']:.2f} ms"""
+
+            self.metrics_info.config(state=tk.NORMAL)
+            self.metrics_info.delete(1.0, tk.END)
+            self.metrics_info.insert(tk.END, text)
+            self.metrics_info.config(state=tk.DISABLED)
+
         self.master.after(0, _update)
 
     def on_canvas_click(self, event):
@@ -464,29 +484,51 @@ class UavNetSimGUI:
         canvas = FigureCanvasTkAgg(fig, master=popup)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-
-
-        # # 直接基于仿真数据重新绘制
-        # self._draw_interactive_view(ax_new)
-        # canvas.draw()
+        # 设置标题
+        ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)
 
         if target_idx == 0 or target_idx == 2:
             from visualization.scatter import get_ax_state
 
             cached_state = get_ax_state(target_ax)
-
             if cached_state:
                 # 使用缓存数据重建图形
                 ax_new.clear()
                 # 绘制无人机
-                for coords in cached_state["drones"]:
-                    ax_new.scatter(*coords, c='red', s=30, alpha=0.7)
-                # 绘制链路
+                # 绘制无人机和编号
+                for drone in cached_state["drones"]:  # 改为遍历字典结构
+                    # 绘制无人机点
+                    ax_new.scatter(*drone["coords"], c='red', s=50, alpha=0.7)
+
+                    # 添加编号标注（使用存储的ID）
+                    ax_new.text(
+                        drone["coords"][0] + 1,  # X偏移
+                        drone["coords"][1] + 1,  # Y偏移
+                        drone["coords"][2],  # Z保持原值
+                        f'#{drone["id"]}',  # 从字典获取真实ID
+                        fontsize=16,
+                        color='darkred',
+                        ha='left',
+                        va='bottom'
+                    )
+
+                # 绘制链路（使用新的链路数据结构）
                 for link in cached_state["links"]:
-                    x = [link[0][0], link[1][0]]
-                    y = [link[0][1], link[1][1]]
-                    z = [link[0][2], link[1][2]]
-                    ax_new.plot(x, y, z, color='black', linestyle='dashed', linewidth=1)
+                    # 从链路数据中提取坐标点
+                    start_coords = link["coords"][0]
+                    end_coords = link["coords"][1]
+                    x = [start_coords[0], end_coords[0]]
+                    y = [start_coords[1], end_coords[1]]
+                    z = [start_coords[2], end_coords[2]]
+
+                    ax_new.plot(
+                        x, y, z,
+                        color='#404040',
+                        linestyle='-',
+                        linewidth=2,
+                        alpha=0.7,
+                        solid_capstyle='round'
+                    )
                 canvas.draw()
             # 设置标题和坐标轴
             ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)

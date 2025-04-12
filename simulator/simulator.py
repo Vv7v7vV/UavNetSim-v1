@@ -34,6 +34,7 @@ class Simulator:
                  total_simulation_time=config.SIM_TIME,
                  update_drone_callback=None,
                  update_progress_callback=None,  # 新增进度回调
+                 update_metrics_callback = None,  # 指标更新回调函数
                  axs=None,
                  gui_canvas=None):
 
@@ -54,6 +55,7 @@ class Simulator:
         self.axs = axs  # 新增属性保存子图引用
         self.update_drone_callback = update_drone_callback
         self.update_progress_callback = update_progress_callback
+        self.update_metrics_callback = update_metrics_callback      # 指标更新回调函数
 
         # 生成无人机的初始位置。
         start_position = start_coords.get_random_start_point_3d(seed)
@@ -114,11 +116,6 @@ class Simulator:
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)
 
-        # 更新主界面子图（不重新绘图，仅更新数据）
-        # for drone in self.drones:
-        #     self.gui_canvas.draw_idle()  # 通知Canvas刷新
-        # scatter_plot(self)
-
         # 3图pic
         progress_msg = '仿真结束'
         if self.gui_canvas:
@@ -139,4 +136,10 @@ class Simulator:
                 target_ax=2)
         # scatter_plot(self, gui_canvas=self.gui_canvas)  # 通过主线程调用
 
-        self.metrics.print_metrics()
+        metrics_data = self.metrics.get_metrics_dict()  # 新增方法
+
+        # GUI模式使用回调，非GUI模式直接打印
+        if self.gui_canvas:
+            self.update_metrics_callback(metrics_data)
+        else:
+            self.metrics.print_metrics()

@@ -88,6 +88,7 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
     """支持静态图与交互图的绘制模式"""
     def _plot():
         nonlocal interactive
+
         title = ''
         if target_ax:
             title = target_ax.get_title()
@@ -96,6 +97,8 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
         else:
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
+        # 复制原始视图的视角设置
+        ax.view_init(elev=target_ax.elev, azim=target_ax.azim)
 
         for drone1 in simulator.drones:
             for drone2 in simulator.drones:
@@ -131,7 +134,7 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
 
         # 缓存无人机坐标和链路数据
         state = {
-            "drones": [d.coords for d in simulator.drones],
+            "drones": [{"id": d.identifier, "coords": d.coords} for d in simulator.drones],  # 添加ID信息
             "links": []
         }
 
@@ -139,7 +142,11 @@ def scatter_plot(simulator, gui_canvas=None, target_ax=None, interactive=True):
         for i, d1 in enumerate(simulator.drones):
             for d2 in simulator.drones[i + 1:]:
                 if euclidean_distance_3d(d1.coords, d2.coords) <= maximum_communication_range():
-                    state["links"].append((d1.coords, d2.coords))
+                    state["links"].append({
+                        "from": d1.identifier,  # 添加起点ID
+                        "to": d2.identifier,    # 添加终点ID
+                        "coords": (d1.coords, d2.coords)  # 保留原始坐标数据
+                    })
 
         # 更新缓存
         if ax_id:
