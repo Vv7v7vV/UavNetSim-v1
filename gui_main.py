@@ -588,6 +588,26 @@ class UavNetSimGUI:
 
                     canvas.draw()
 
+    def _get_axis_range(self, values, margin_ratio=0.1):
+        """根据数据计算带边距的坐标轴范围"""
+        if not values:  # 空数据时返回默认范围
+            return 0, config.MAP_LENGTH
+
+        v_min = min(values)
+        v_max = max(values)
+        span = v_max - v_min
+
+        # 处理所有点相同的情况
+        if span == 0:
+            span = config.MAP_LENGTH * 0.1  # 默认使用10%的地图长度
+            v_min -= span / 2
+            v_max += span / 2
+        else:
+            margin = span * margin_ratio
+            v_min -= margin
+            v_max += margin
+
+        return max(0, v_min), min(v_max, config.MAP_LENGTH)
 
 
     # def _draw_interactive_view(self, ax):
@@ -664,34 +684,9 @@ class UavNetSimGUI:
     #     dst_ax.set_ylabel(src_ax.get_ylabel())
     #     dst_ax.set_zlabel(src_ax.get_zlabel())
 
-    def _get_axis_range(self, values, margin_ratio=0.1):
-        """根据数据计算带边距的坐标轴范围"""
-        if not values:  # 空数据时返回默认范围
-            return 0, config.MAP_LENGTH
-
-        v_min = min(values)
-        v_max = max(values)
-        span = v_max - v_min
-
-        # 处理所有点相同的情况
-        if span == 0:
-            span = config.MAP_LENGTH * 0.1  # 默认使用10%的地图长度
-            v_min -= span / 2
-            v_max += span / 2
-        else:
-            margin = span * margin_ratio
-            v_min -= margin
-            v_max += margin
-
-        return max(0, v_min), min(v_max, config.MAP_LENGTH)
 
 
-
-
-
-
-
-
+    #=============================GIF==================================
 
     def process_plot_queue(self):
         """主线程定期处理绘图队列"""

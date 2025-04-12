@@ -43,7 +43,6 @@ class SimulationVisualizer:
                  vis_frame_interval=50000,
                  fig=None,
                  ax=None,
-                 gui_mode=False,
                  gui_canvas=None,
                  master=None):
         """
@@ -59,21 +58,7 @@ class SimulationVisualizer:
 
         self.simulator = simulator
         self.output_dir = output_dir
-        self.vis_frame_interval = vis_frame_interval
 
-        # # 新增GUI集成参数
-        # if fig is None or ax is None:
-        #     self.fig = plt.figure(figsize=(18, 6))
-        #     self.ax_data = self.fig.add_subplot(121, projection='3d')
-        #     self.ax_ack = self.fig.add_subplot(122, projection='3d')
-        # else:
-        #     self.fig = fig
-        #     self.ax_data = ax[0] if isinstance(ax, (list, tuple)) else ax
-        #     self.ax_ack = ax[1] if isinstance(ax, (list, tuple)) else ax
-
-        os.makedirs(output_dir, exist_ok=True)
-        self.drone_positions = {i: [] for i in range(self.simulator.n_drones)}
-        
         # Store vis_frame_interval in microseconds
         self.vis_frame_interval = vis_frame_interval
         
@@ -105,19 +90,17 @@ class SimulationVisualizer:
         self.interactive_slider = None
         self.frame_times = []
 
-        # # 新增部分，创建子图对象并在类中保存
-        # self.fig = plt.figure(figsize=(18, 6))
-        # self.ax_data = self.fig.add_subplot(121, projection='3d')
-        # self.ax_ack = self.fig.add_subplot(122, projection='3d')
-        # 预排序通信事件
-        self.comm_events.sort(key=lambda x: x[4])
+        #============================================GUI==========================================
+        os.makedirs(output_dir, exist_ok=True)
+        self.drone_positions = {i: [] for i in range(self.simulator.n_drones)}
 
         # 添加GUI模式下的绘图控制
-        # self.gui_canvas = None
         self.master = master  # 保存主窗口引用
-        self.gui_mode = gui_mode  # 新增GUI模式标志
         self.gui_canvas = gui_canvas  # 保存Canvas引用
-    
+
+
+
+
     def _setup_communication_tracking(self):
         """Setup tracking for communication events"""
         # Save the original unicast_put method
@@ -176,15 +159,6 @@ class SimulationVisualizer:
             fig: matplotlib figure to draw on
             current_time: current simulation time (seconds)
         """
-        if self.gui_mode:  # GUI模式下的特殊处理
-            for ax in [self.ax_data, self.ax_ack]:
-                ax.clear()
-
-            self.fig.suptitle(f"UAV Network Simulation at t={int(current_time * 1e6)}μs", fontsize=14)
-        else:
-            self.fig = plt.figure(figsize=(18, 6))
-            self.ax_data = self.fig.add_subplot(121, projection='3d')
-            self.ax_ack = self.fig.add_subplot(122, projection='3d')
 
         fig.suptitle(f"UAV Network Simulation at t={int(current_time*1e6)}μs", fontsize=14)
         
@@ -197,7 +171,7 @@ class SimulationVisualizer:
         ax_ack.set_title("ACK Packets")
         
         # Set axis labels and limits for both subplots
-        for ax in [self.ax_data, self.ax_ack]:
+        for ax in [ax_data, ax_ack]:
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
@@ -216,28 +190,27 @@ class SimulationVisualizer:
         # Draw communication links
         display_window = self.vis_frame_interval / 1e6  # Convert to seconds
 
-        ############################################################################
-        import bisect
+        recent_comms = [e for e in self.comm_events
+                      if current_time - display_window <= e[4] <= current_time]
 
-        # 提前将comm_events按时间排序（确保已排序）
-        # 创建一个时间戳列表，用于二分查找
-        event_timestamps = [e[4] for e in self.comm_events]
-
-        # 计算起始和结束时间
-        start_time = current_time - display_window
-        end_time = current_time
-
-        # 使用bisect查找起始和结束位置
-        left = bisect.bisect_left(event_timestamps, start_time)
-        right = bisect.bisect_right(event_timestamps, end_time)
-
-        # 提取时间窗口内的事件
-        recent_comms = self.comm_events[left:right]
-        ############################################################################
-
-
-        # recent_comms = [e for e in self.comm_events
-        #               if current_time - display_window <= e[4] <= current_time]
+        # ############################################################################
+        # import bisect
+        #
+        # # 提前将comm_events按时间排序（确保已排序）
+        # # 创建一个时间戳列表，用于二分查找
+        # event_timestamps = [e[4] for e in self.comm_events]
+        #
+        # # 计算起始和结束时间
+        # start_time = current_time - display_window
+        # end_time = current_time
+        #
+        # # 使用bisect查找起始和结束位置
+        # left = bisect.bisect_left(event_timestamps, start_time)
+        # right = bisect.bisect_right(event_timestamps, end_time)
+        #
+        # # 提取时间窗口内的事件
+        # recent_comms = self.comm_events[left:right]
+        # ############################################################################
         
         # Get only the latest communication events for each src-dst pair
         latest_data_comms = self._get_latest_comms(recent_comms, "DATA")
@@ -255,11 +228,6 @@ class SimulationVisualizer:
         
         ack_legend = [Line2D([0], [0], color=self.comm_colors["ACK"], lw=2, label="ACK Packets")]
         ax_ack.legend(handles=ack_legend, loc='upper right')
-
-        if self.gui_mode:
-            self.fig.canvas.draw_idle()
-        else:
-            plt.show()
 
     def _get_latest_comms(self, comms, packet_type):
         """
@@ -291,132 +259,81 @@ class SimulationVisualizer:
         return list(latest_comms_dict.values())
 
     def create_animations(self):
-        """Create GIF animation of the simulation (线程安全版本)"""
+        """Create GIF animation of the simulation"""
         import io
-        from PIL import Image
-        
+
         if not self.timestamps:
             print("No timestamps available for animation")
             return
-        
+
         try:
-            print("正在创建动态 GIF...")
+            print("Creating animation GIF...")
             animation_frames = []
-            
+
             # Calculate frames based on vis_frame_interval
             min_time = min(self.timestamps)
             max_time = max(self.timestamps)
             frame_interval_sec = self.vis_frame_interval / 1e6  # Convert microseconds to seconds
-            
+
             # Create frame times at regular intervals based on vis_frame_interval
             self.frame_times = []
             current_time = min_time
             while current_time <= max_time:
                 self.frame_times.append(current_time)
                 current_time += frame_interval_sec
-            
+
             n_frames = len(self.frame_times)
             print(f"Generating {n_frames} frames with interval of {frame_interval_sec} seconds")
 
-            # # Create a new figure for this frame
-            # fig = plt.figure(figsize=(18, 6))
-            #
-            # for i, time_point in enumerate(self.frame_times):
-            #     print(f"Generating frame {i+1}/{n_frames}", end="\r")
-            #
-            #     # # Create a new figure for this frame
-            #     # fig = plt.figure(figsize=(18, 6))
-            #
-            #
-            #     # Clear previous plots if any
-            #     plt.clf()
-            #
-            #
-            #     # Draw visualization elements
-            #     self._draw_visualization_frame(fig, time_point)
-            #
-            #     # Save the figure to a BytesIO buffer
-            #     buf = io.BytesIO()
-            #     plt.savefig(buf, format='png', dpi=100)
-            #
-            #     # plt.close(fig)
-            #
-            #     # Reset buffer position and open image
-            #     buf.seek(0)
-            #     img = Image.open(buf)
-            #     # Convert to RGB mode to ensure compatibility
-            #     img = img.convert('RGB')
-            #     # Create a copy of the image to ensure it's fully loaded
-            #     img_copy = img.copy()
-            #     animation_frames.append(img_copy)
-            #     buf.close()
-
             for i, time_point in enumerate(self.frame_times):
-                # 使用独立的Figure生成GIF，避免与GUI的fig冲突
                 print(f"Generating frame {i + 1}/{n_frames}", end="\r")
 
-                # 创建临时Figure
+                # Create a new figure for this frame
                 fig = plt.figure(figsize=(18, 6))
-                ax_data = fig.add_subplot(121, projection='3d')
-                ax_ack = fig.add_subplot(122, projection='3d')
 
-                # 调用绘图方法
+                # Draw visualization elements
                 self._draw_visualization_frame(fig, time_point)
 
-                # 保存到缓冲区
+                # Save the figure to a BytesIO buffer
                 buf = io.BytesIO()
                 plt.savefig(buf, format='png', dpi=100)
-                plt.close(fig)  # 关闭临时Figure释放内存
+                plt.close(fig)
 
-                # 处理图像
+                # Reset buffer position and open image
                 buf.seek(0)
-                img = Image.open(buf).convert('RGB')
-                animation_frames.append(img.copy())
+                img = Image.open(buf)
+                # Convert to RGB mode to ensure compatibility
+                img = img.convert('RGB')
+                # Create a copy of the image to ensure it's fully loaded
+                img_copy = img.copy()
+                animation_frames.append(img_copy)
                 buf.close()
+
             print("\nSaving animation...")
-            
-            # # Save the animation
-            # animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
-            # if animation_frames:
-            #     # Save with explicit parameters
-            #     animation_frames[0].save(
-            #         animation_file,
-            #         format='GIF',
-            #         save_all=True,
-            #         append_images=animation_frames[1:],
-            #         duration=50,  # ms per frame
-            #         loop=1,  # Loop indefinitely
-            #         optimize=True,
-            #         quality=70,    # Reduce quality slightly (0-100)
-            #         # Reduce colors if needed
-            #         colors=128     # Maximum number of colors
-            #     )
-            #     print(f"Animation saved to {animation_file}")
-            # else:
-            #     print("No frames were generated for the animation")
 
-
+            # Save the animation
+            animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
             if animation_frames:
-                # 保存GIF
-                animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
+                # Save with explicit parameters
                 animation_frames[0].save(
                     animation_file,
+                    format='GIF',
                     save_all=True,
                     append_images=animation_frames[1:],
-                    duration=100,  # 控制播放速度（毫秒/帧）
-                    loop=0,  # 无限循环
-                    optimize=True
+                    duration=50,  # ms per frame
+                    loop=1,  # Loop indefinitely
+                    optimize=True,
+                    quality=70,  # Reduce quality slightly (0-100)
+                    # Reduce colors if needed
+                    colors=128  # Maximum number of colors
                 )
                 print(f"Animation saved to {animation_file}")
-                return animation_file  # 返回文件路径供GUI显示
             else:
-                print("No frames generated for animation")
-                return None
+                print("No frames were generated for the animation")
 
         except Exception as e:
             print(f"Error creating animation: {e}")
             print("Continuing with interactive visualization...")
-            return None
     
     def run_visualization(self):
         """
@@ -435,44 +352,25 @@ class SimulationVisualizer:
         self.simulator.env.process(track_positions())
     
     def finalize(self):
-        if self.gui_mode and self.master:
-            # 在主线程中调用散点图
-            # self.gui_canvas.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
-            # self.master.after(0, lambda: scatter_plot(self.simulator, self.gui_canvas))
-            self.create_animations()
-            self.create_interactive_visualization()
-
-            # 通过线程生成GIF，避免阻塞主线程
-            def safe_create_animations():
-                gif_path = self.create_animations()  # 调用生成GIF的方法
-                if gif_path:
-                    # 在主线程中调用消息提示
-                    self.master.after(0, lambda: self._show_completion_message(gif_path))
-
-            # 启动后台线程
-            from threading import Thread
-            Thread(target=safe_create_animations).start()
+        if self.gui_canvas:
+            #TODO
+            print("Finalizing visualization process...")
+        else:
             print("Finalizing visualization...")
 
-        else:
-            # GUI模式仅更新当前状态
-            current_time = self.simulator.env.now / 1e6
-            self._draw_visualization_frame(self.fig,current_time)
-            if self.gui_canvas:
-                self.gui_canvas.draw_idle()
+            # Create animation
+            self.create_animations()
 
-    # def _safe_scatter_plot(self):
-    #     """线程安全的散点图绘制"""
-    #     from visualization.scatter import scatter_plot
-    #     scatter_plot(self.simulator, gui_canvas=self.gui_canvas)
+            # Create interactive visualization
+            self.create_interactive_visualization()
+
+            print("Visualization complete. Output saved to:", self.output_dir)
+
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""
         if not self.timestamps:
             print("No timestamps available for interactive visualization")
-            return
-        # 添加主线程检查
-        if self.gui_mode:
             return
 
         print("Creating interactive visualization...")
@@ -597,24 +495,23 @@ class SimulationVisualizer:
             except Exception as e:
                 print(f"Error going to time: {e}")
 
-        if not self.gui_mode:  # 只在非GUI模式下创建交互式窗口
-            # Connect the update function to the slider
-            time_slider.on_changed(update)
+        # Connect the update function to the slider
+        time_slider.on_changed(update)
 
-            # Connect the goto function to the button
-            goto_button.on_clicked(goto_time)
+        # Connect the goto function to the button
+        goto_button.on_clicked(goto_time)
 
-            # Initial plot
-            update_plot(self.frame_times[0])
+        # Initial plot
+        update_plot(self.frame_times[0])
 
-            # Save reference to interactive elements
-            self.interactive_fig = fig
-            self.interactive_slider = time_slider
+        # Save reference to interactive elements
+        self.interactive_fig = fig
+        self.interactive_slider = time_slider
 
-            # Show the interactive visualization
-            plt.show()
+        # Show the interactive visualization
+        plt.show()
 
-            print("Interactive visualization created. Close the plot window to continue.")
+        print("Interactive visualization created. Close the plot window to continue.")
 
     def _get_drone_positions(self, current_time):
         """Get drone positions at a specific time"""
