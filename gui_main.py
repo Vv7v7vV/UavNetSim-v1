@@ -297,7 +297,6 @@ class UavNetSimGUI:
                 vis_frame_interval=20000,
                 fig=self.fig,
                 ax=self.axs,  # 传递所有4个子图对象
-                gui_mode=True,
                 master=self.master  # 传递主窗口引用
             )
 
