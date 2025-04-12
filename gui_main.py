@@ -66,25 +66,27 @@ class UavNetSimGUI:
 
         # 创建4个子图（保持原有代码）
         self.fig = plt.figure(figsize=(16, 10))
-        self.gs = self.fig.add_gridspec(2, 2)  # 使用GridSpec管理4个子图
-
+        self.gs = self.fig.add_gridspec(2, 3)  # 2行3列网格
         # 明确定义所有子图并初始化为空3D坐标系
-        self.axs = []
-        positions = [(0, 0), (0, 1), (1, 0), (1, 1)]  # 子图位置
+        positions = [
+            (0, 0), (0, 1), (0, 2),  # 第一行三个
+            (1, slice(0, 3))  # 第二行跨三列
+        ]
+
         titles = ["初始网络拓扑视图", "无人机路径视图", "最终网络拓扑视图", "数据包传输视图"]
+        self.axs = []
         for idx, (pos, title) in enumerate(zip(positions, titles)):
-            ax = self.fig.add_subplot(self.gs[pos[0], pos[1]], projection='3d')
+            ax = self.fig.add_subplot(self.gs[pos], projection='3d')
             ax.grid(True)
             ax.set_title(title, fontsize=config.fig_font_size)
-            # ax.view_init(elev=30, azim=45)
             ax.set_xlim(0, config.MAP_LENGTH)
             ax.set_ylim(0, config.MAP_WIDTH)
             ax.set_zlim(0, config.MAP_HEIGHT)
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
-
             self.axs.append(ax)
+
         # for pos, title in zip(positions, titles):
         #     ax = self.fig.add_subplot(
         #         self.gs[pos[0], pos[1]],  # 使用GridSpec索引
