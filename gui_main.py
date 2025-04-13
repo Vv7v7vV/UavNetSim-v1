@@ -26,12 +26,17 @@ class UavNetSimGUI:
     # 字体
 
     def __init__(self, master):
+        # ====================================仿真相关对象=======================================
+        self.sim = None
+        self.visualizer = None
+        self.sim_thread = None
+        self.sim_running = False  # 新增仿真状态标志
         self.master = master
         master.title("无人机资源调度仿真平台")
         master.geometry("1600x900")
         master.minsize(800, 600)  # 防止过度压缩
 
-
+        # ======================================布局===========================================
         # 主框架使用grid布局
         self.main_frame = ttk.Frame(master)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
@@ -170,12 +175,6 @@ class UavNetSimGUI:
         # 初始化默认文本内容
         self._init_default_text()
 
-        # ====================================仿真相关对象=======================================
-        self.sim = None
-        self.visualizer = None
-        self.sim_thread = None
-        self.sim_running = False  # 新增仿真状态标志
-
 
         # # 添加GIF显示区域
         # self.gif_frame = ttk.Frame(self.control_panel)
@@ -291,6 +290,8 @@ class UavNetSimGUI:
         # 启动仿真线程（确保先初始化visualizer）
         self.sim_thread = Thread(target=self.run_simulation)
         self.sim_thread.start()
+        # 启动动画
+        self.animate_gif()
 
 
     def run_simulation(self):
@@ -596,6 +597,7 @@ class UavNetSimGUI:
                                 label=f'无人机 {config.chosen_drone} 运动轨迹')
 
                     # 设置动态坐标轴
+                    ax_new.set_title(target_ax.get_title(), fontsize=config.fig_font_size)
                     ax_new.set_xlim(x_min, x_max)
                     ax_new.set_ylim(y_min, y_max)
                     ax_new.set_zlim(z_min, z_max)
@@ -710,9 +712,8 @@ class UavNetSimGUI:
 
     #=============================GIF==================================
 
-
     def load_gif(self, gif_path):
-        """加载并播放GIF"""
+        """加载GIF并显示第一帧"""
         try:
             self.gif_frames = []
             gif = Image.open(gif_path)
@@ -720,19 +721,51 @@ class UavNetSimGUI:
                 frame = frame.convert('RGBA')
                 photo = ImageTk.PhotoImage(frame)
                 self.gif_frames.append(photo)
+
+            # 只显示第一帧，不启动动画
+            if self.gif_frames:
+                self.gif_label.config(image=self.gif_frames[0])
+                self.gif_label.image = self.gif_frames[0]  # 保持引用
+
             self.current_frame = 0
-            self.animate_gif()
         except Exception as e:
             print(f"GIF加载失败: {str(e)}")
 
     def animate_gif(self):
         """GIF动画循环"""
-        if self.current_frame < len(self.gif_frames):
-            self.gif_label.config(image=self.gif_frames[self.current_frame])
-            self.current_frame += 1
-        else:
-            self.current_frame = 0  # 循环播放
-        self.master.after(100, self.animate_gif)
+        if self.sim_running and self.gif_frames:
+            if self.current_frame < len(self.gif_frames):
+                self.gif_label.config(image=self.gif_frames[self.current_frame])
+                self.gif_label.image = self.gif_frames[self.current_frame]  # 保持引用
+                self.current_frame += 1
+            else:
+                self.current_frame = 0  # 循环播放
+            self.master.after(100, self.animate_gif)
+
+
+    # def load_gif(self, gif_path):
+    #     """加载并播放GIF"""
+    #     try:
+    #         self.gif_frames = []
+    #         gif = Image.open(gif_path)
+    #         for frame in ImageSequence.Iterator(gif):
+    #             frame = frame.convert('RGBA')
+    #             photo = ImageTk.PhotoImage(frame)
+    #             self.gif_frames.append(photo)
+    #         self.current_frame = 0
+    #         self.animate_gif()
+    #     except Exception as e:
+    #         print(f"GIF加载失败: {str(e)}")
+    #
+    # def animate_gif(self):
+    #     """GIF动画循环"""
+    #
+    #     if self.current_frame < len(self.gif_frames):
+    #         self.gif_label.config(image=self.gif_frames[self.current_frame])
+    #         self.current_frame += 1
+    #     else:
+    #         self.current_frame = 0  # 循环播放
+    #     self.master.after(100, self.animate_gif)
 
 
 

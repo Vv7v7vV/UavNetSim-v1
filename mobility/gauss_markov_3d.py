@@ -158,7 +158,7 @@ class GaussMarkov3D:
                 ax.set_xlabel('X (m)')
                 ax.set_ylabel('Y (m)')
                 ax.set_zlabel('Z (m)')
-                ax.legend()
+
                 # 提取三维坐标数据
                 x_coords = [p[0] for p in self.trajectory]
                 y_coords = [p[1] for p in self.trajectory]
