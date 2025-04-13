@@ -64,14 +64,19 @@ class UavNetSimGUI:
 
         # ================================= 中间可视化区域 ============================================
         self.vis_frame = ttk.Frame(self.main_frame)
-        self.vis_frame.grid(row=0, column=1, sticky="nsew")
-        self.vis_frame.rowconfigure(0, weight=1)  # 上部子图区域
-        self.vis_frame.rowconfigure(1, weight=0)  # 下部GIF区域（固定高度）
+        self.vis_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)  # 移除容器外边距
+
+        # 配置样式（添加在setup_controls方法前）
+        style = ttk.Style()
+        style.configure("White.TFrame", background="white")
+
+        self.vis_frame.rowconfigure(0, weight=1)  # 子图区域
+        self.vis_frame.rowconfigure(1, weight=0)  # GIF区域（固定高度）
         self.vis_frame.columnconfigure(0, weight=1)
 
         # 创建3个子图（使用更紧凑的布局）
-        self.fig = plt.figure(figsize=(16, 10))
-        self.gs = self.gs = self.fig.add_gridspec(
+        self.fig = plt.figure(figsize=(16, 10), facecolor='white')
+        self.gs = self.fig.add_gridspec(
             nrows=1, ncols=3,  # 单行三列
             width_ratios=[1, 1, 1],  # 等宽分布
             left=0.1, right=0.9,    # 左右边距各留10%
@@ -81,6 +86,7 @@ class UavNetSimGUI:
         self.axs = []
         for idx, title in enumerate(titles):
             ax = self.fig.add_subplot(self.gs[0, idx], projection='3d')  # 全部放在第一行
+            ax.set_facecolor('white')  # 设置子图背景为白
             ax.grid(True)
             ax.set_title(title, fontsize=config.fig_font_size)  # 标题
             ax.set_xlim(0, config.MAP_LENGTH)
@@ -92,7 +98,7 @@ class UavNetSimGUI:
             self.axs.append(ax)
 
         # 创建Canvas并添加垂直居中垫片
-        canvas_container = ttk.Frame(self.vis_frame)
+        canvas_container = ttk.Frame(self.vis_frame, style="White.TFrame")
         canvas_container.grid(row=0, column=0, sticky="nsew")
         canvas_container.rowconfigure(0, weight=1)
         canvas_container.columnconfigure(0, weight=1)
@@ -104,10 +110,26 @@ class UavNetSimGUI:
         # 绑定Canvas点击事件
         self.canvas.get_tk_widget().bind("<Button-1>", self.on_canvas_click)
 
-        # GIF显示区域（固定高度）
-        self.gif_frame = ttk.Frame(self.vis_frame, height=200)  # 设置固定高度
-        self.gif_frame.grid(row=1, column=0, sticky="sew", padx=5, pady=5)
-        self.gif_label = ttk.Label(self.gif_frame)
+        # ===== GIF显示区域 =====
+        self.gif_frame = ttk.Frame(
+            self.vis_frame,
+            style="White.TFrame",
+            height=200,
+            padding=0  # 移除内边距
+        )
+        self.gif_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)  # 移除边距
+        # 配置三列布局（左垫片 + 内容 + 右垫片）
+        self.gif_frame.columnconfigure(0, weight=1)
+        self.gif_frame.columnconfigure(1, weight=0)  # 内容列不扩展
+        self.gif_frame.columnconfigure(2, weight=1)
+        self.gif_frame.rowconfigure(0, weight=1)
+
+        # 创建居中显示容器
+        self.gif_container = ttk.Frame(self.gif_frame)
+        self.gif_container.grid(row=0, column=1, sticky="")
+
+        # GIF标签使用固定宽高比
+        self.gif_label = ttk.Label(self.gif_container)
         self.gif_label.pack(fill=tk.BOTH, expand=True)
         self.load_gif(r"E:\Data\lab\UavNetSim_v1\uav_network_simulation2.gif")  # 替换为实际GIF路径
 
@@ -701,7 +723,7 @@ class UavNetSimGUI:
             self.current_frame = 0
             self.animate_gif()
         except Exception as e:
-            self.log(f"GIF加载失败: {str(e)}")
+            print(f"GIF加载失败: {str(e)}")
 
     def animate_gif(self):
         """GIF动画循环"""
