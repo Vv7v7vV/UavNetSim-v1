@@ -176,7 +176,8 @@ class SimulationVisualizer:
     
     def finalize(self):
         if self.gui_canvas:
-            print("Finalizing visualization...")
+            # print("正在完成可视化处理...")
+            self.master.gui_instance.log("正在完成可视化处理...")
 
             # self.master.after(0, self.create_animations)
             # self.master.after(0, self.create_interactive_visualization)
@@ -192,30 +193,31 @@ class SimulationVisualizer:
             )
 
             # Create interactive visualization
+            # TODO
             # self.create_interactive_visualization()
 
-            print("Visualization complete. Output saved to:", self.output_dir)
+            self.master.gui_instance.log(f"GIF图像处理完成，\n  输出已保存至: {self.output_dir}")
         else:
-            print("Finalizing visualization...")
-
-            # Create animation
+            print("正在完成可视化处理...")
+            
+            # 创建GIF动画
             self.create_animations()
-
-            # Create interactive visualization
+            
+            # 创建交互式可视化
             self.create_interactive_visualization()
 
-            print("Visualization complete. Output saved to:", self.output_dir)
+            print("GIF图像处理完成，输出已保存至:", self.output_dir)
 
     def create_animations(self):
         """Create GIF animation of the simulation"""
         import io
 
         if not self.timestamps:
-            print("No timestamps available for animation")
+            self.master.gui_instance.log("无可用时间戳数据，无法生成动画")
             return
 
         try:
-            print("Creating animation GIF...")
+            self.master.gui_instance.log("正在生成动画GIF...")
             animation_frames = []
 
             # Calculate frames based on vis_frame_interval
@@ -231,11 +233,13 @@ class SimulationVisualizer:
                 current_time += frame_interval_sec
 
             n_frames = len(self.frame_times)
-            print(f"Generating {n_frames} frames with interval of {frame_interval_sec} seconds")
+
+            self.master.gui_instance.log(f"正在生成{n_frames}帧动画，\n  时间间隔：{frame_interval_sec}秒")
 
             for i, time_point in enumerate(self.frame_times):
-                print(f"Generating frame {i + 1}/{n_frames}")
-                      # , end="\r")
+                # TODO
+                # print(f"生成进度：第{i + 1}/{n_frames}帧", end="\r")
+                self.master.gui_instance.update_generation_progress(i, n_frames)
 
                 # Create a new figure for this frame
                 fig = plt.figure(figsize=(16, 8))
@@ -258,7 +262,7 @@ class SimulationVisualizer:
                 animation_frames.append(img_copy)
                 buf.close()
 
-            print("\nSaving animation...")
+            self.master.gui_instance.log("正在保存动画GIF...")
 
             # Save the animation
             animation_file = os.path.join(self.output_dir, "uav_network_simulation.gif")
@@ -276,13 +280,13 @@ class SimulationVisualizer:
                     # Reduce colors if needed
                     colors=128  # Maximum number of colors
                 )
-                print(f"Animation saved to {animation_file}")
+                self.master.gui_instance.log(f"动画已保存至：{animation_file}")
             else:
-                print("No frames were generated for the animation")
+                self.master.gui_instance.log("未能生成任何动画帧")
 
         except Exception as e:
-            print(f"Error creating animation: {e}")
-            print("Continuing with interactive visualization...")
+            self.master.gui_instance.log(f"创建动画时出错：{e}")
+            self.master.gui_instance.log("继续执行交互式可视化...")
 
     def _draw_visualization_frame(self, fig, current_time):
         """
@@ -427,7 +431,7 @@ class SimulationVisualizer:
             ax_ack.set_title("ACK 包")
 
             # Update main figure title
-            fig.suptitle(f"无人机网络数据包传递视图\nt={int(current_time * 1e6)}μs", fontsize=14)
+            fig.suptitle(f"无人机网络数据包传递视图\nt={int(current_time * 1e6)}μs", fontsize=config.fig_font_size)
 
             # Set axis properties for both subplots
             for ax in [ax_data, ax_ack]:

@@ -35,7 +35,7 @@ class UavNetSimGUI:
         self.master.gui_instance = self
 
         master.title("无人机资源调度仿真平台")
-        master.geometry("1600x900")
+        master.geometry("2880x1800")
         master.minsize(800, 600)  # 防止过度压缩
 
         # ======================================布局===========================================
@@ -443,6 +443,39 @@ class UavNetSimGUI:
             self.log_info.config(state=tk.DISABLED)
         
         # 13. 通过主线程队列保证线程安全
+        self.master.after(0, _update)
+
+    def update_generation_progress(self, current_frame, total_frames):
+        """更新动画生成进度（与仿真进度分离）"""
+
+        def _update():
+            self.log_info.config(state=tk.NORMAL)
+            message = f"生成进度：第{current_frame + 1}/{total_frames}帧"
+            target_tag = "gen_progress"
+
+            # 配置专属样式
+            self.log_info.tag_config(target_tag, foreground='blue')
+
+            # 查找已有进度行
+            content = self.log_info.get("1.0", tk.END)
+            lines = content.split("\n")
+            target_line = -1
+            for idx, line in enumerate(lines):
+                if "生成进度" in line:
+                    target_line = idx + 1  # Tkinter行号从1开始
+                    break
+
+            # 更新或插入新行
+            if target_line != -1:
+                self.log_info.delete(f"{target_line}.0", f"{target_line}.end")
+                self.log_info.insert(f"{target_line}.0", f"> {message}", target_tag)
+            else:
+                self.log_info.insert(tk.END, f"> {message}\n", target_tag)
+
+            self.log_info.see(tk.END)
+            self.log_info.config(state=tk.DISABLED)
+
+        # 确保在主线程执行
         self.master.after(0, _update)
 
     def update_metrics_info(self, metrics):
