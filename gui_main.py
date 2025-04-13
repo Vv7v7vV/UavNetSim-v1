@@ -464,13 +464,13 @@ class UavNetSimGUI:
         """更新性能指标区域"""
 
         def _update():
-            text = f"""数据包投递率(PDR): {metrics['pdr']:.2f}%
-                        平均端到端延迟(E2E): {metrics['e2e']:.2f} ms
-                        路由负载(RL): {metrics['rl']:.2f}
-                        平均吞吐量: {metrics['throughput']:.2f} Kbps
-                        平均跳数: {metrics['hop']:.2f}
-                        冲突次数: {metrics['collision']}
-                        平均MAC延迟: {metrics['mac_delay']:.2f} ms"""
+            text = (f"数据包投递率(PDR): {metrics['pdr']:.2f}%\n"
+                    f"平均端到端延迟(E2E): {metrics['e2e']:.2f} ms\n"
+                    f"路由负载(RL): {metrics['rl']:.2f}\n"
+                    f"平均吞吐量: {metrics['throughput']:.2f} Kbps\n"
+                    f"平均跳数: {metrics['hop']:.2f}\n"
+                    f"冲突次数: {metrics['collision']}\n"
+                    f"平均MAC延迟: {metrics['mac_delay']:.2f} ms\n")
 
             self.metrics_info.config(state=tk.NORMAL)
             self.metrics_info.delete(1.0, tk.END)
