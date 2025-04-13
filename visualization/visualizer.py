@@ -50,6 +50,7 @@ class SimulationVisualizer:
                  fig=None,
                  ax=None,
                  gui_canvas=None,
+                 gui_instance=None,
                  master=None):
         """
         Initialize visualizer
@@ -137,14 +138,14 @@ class SimulationVisualizer:
         
         # Replace the method
         self.simulator.channel.unicast_put = tracked_unicast_put
-    
+
     def track_drone_positions(self):
         """
         Record current drone positions
         """
         current_time = self.simulator.env.now / 1e6  # Convert to seconds
         self.timestamps.append(current_time)
-        
+
         for i, drone in enumerate(self.simulator.drones):
             position = drone.coords  # 这已经包含了（x, y, z）坐标
             self.drone_positions[i].append(position)
@@ -175,8 +176,25 @@ class SimulationVisualizer:
     
     def finalize(self):
         if self.gui_canvas:
-            #TODO
-            print("Finalizing visualization process...")
+            print("Finalizing visualization...")
+
+            # self.master.after(0, self.create_animations)
+            # self.master.after(0, self.create_interactive_visualization)
+
+            # Create animation
+            self.create_animations()
+            # gif_path = os.path.join(self.output_dir, "uav_network_simulation.gif")
+
+            gif_path = r"E:\Data\lab\UavNetSim_v1\uav_network_simulation.gif"
+            # 通过主线程调用GUI更新
+            self.master.after(0, lambda:
+                self.master.gui_instance.update_gif_display(gif_path)
+            )
+
+            # Create interactive visualization
+            # self.create_interactive_visualization()
+
+            print("Visualization complete. Output saved to:", self.output_dir)
         else:
             print("Finalizing visualization...")
 
@@ -216,7 +234,8 @@ class SimulationVisualizer:
             print(f"Generating {n_frames} frames with interval of {frame_interval_sec} seconds")
 
             for i, time_point in enumerate(self.frame_times):
-                print(f"Generating frame {i + 1}/{n_frames}", end="\r")
+                print(f"Generating frame {i + 1}/{n_frames}")
+                      # , end="\r")
 
                 # Create a new figure for this frame
                 fig = plt.figure(figsize=(16, 8))
@@ -273,7 +292,7 @@ class SimulationVisualizer:
             fig: matplotlib figure to draw on
             current_time: current simulation time (seconds)
         """
-        fig.suptitle(f"无人机网络数据包传递 t={int(current_time * 1e6)}μs", fontsize=14)
+        fig.suptitle(f"无人机网络数据包传递视图\nt={int(current_time * 1e6)}μs", fontsize=config.fig_font_size)
 
         # Create left and right subplots for DATA and ACK only
         ax_data = fig.add_subplot(121, projection='3d')
@@ -408,7 +427,7 @@ class SimulationVisualizer:
             ax_ack.set_title("ACK 包")
 
             # Update main figure title
-            fig.suptitle(f"无人机网络数据包传递 t={int(current_time * 1e6)}μs", fontsize=14)
+            fig.suptitle(f"无人机网络数据包传递视图\nt={int(current_time * 1e6)}μs", fontsize=14)
 
             # Set axis properties for both subplots
             for ax in [ax_data, ax_ack]:
@@ -588,3 +607,5 @@ class SimulationVisualizer:
         from tkinter import messagebox  # 确保在主线程导入
         if self.master:
             messagebox.showinfo("Animation Saved", f"GIF saved to: {gif_path}")
+
+

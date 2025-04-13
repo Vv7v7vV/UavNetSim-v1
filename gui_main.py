@@ -32,6 +32,8 @@ class UavNetSimGUI:
         self.sim_thread = None
         self.sim_running = False  # 新增仿真状态标志
         self.master = master
+        self.master.gui_instance = self
+
         master.title("无人机资源调度仿真平台")
         master.geometry("1600x900")
         master.minsize(800, 600)  # 防止过度压缩
@@ -136,7 +138,7 @@ class UavNetSimGUI:
         # GIF标签使用固定宽高比
         self.gif_label = ttk.Label(self.gif_container)
         self.gif_label.pack(fill=tk.BOTH, expand=True)
-        self.load_gif(r"E:\Data\lab\UavNetSim_v1\uav_network_simulation2.gif")  # 替换为实际GIF路径
+        self.load_gif(r"E:\Data\lab\UavNetSim_v1\Initial.gif")  # 替换为实际GIF路径
 
 
         # 关键布局配置
@@ -174,13 +176,6 @@ class UavNetSimGUI:
 
         # 初始化默认文本内容
         self._init_default_text()
-
-
-        # # 添加GIF显示区域
-        # self.gif_frame = ttk.Frame(self.control_panel)
-        # self.gif_frame.pack(pady=10)
-        # self.gif_label = ttk.Label(self.gif_frame)
-        # self.gif_label.pack()
 
         self.master.bind("<Configure>", self._on_window_resize)
         # self.print_layout()
@@ -293,7 +288,6 @@ class UavNetSimGUI:
         # 启动动画
         self.animate_gif()
 
-
     def run_simulation(self):
         """执行仿真任务"""
         try:
@@ -321,19 +315,16 @@ class UavNetSimGUI:
                 vis_frame_interval=20000,
                 fig=self.fig,
                 ax=self.axs,  # 传递所有4个子图对象
+                gui_instance=self,  # <-- 关键点
                 master=self.master  # 传递主窗口引用
             )
 
-            # 传递 canvas 引用到 visualizer
-            self.visualizer.gui_canvas = self.canvas
             # 确保visualizer不为None
             assert self.visualizer is not None, self.log("Visualizer初始化失败")
 
-            # 启动可视化过程，开始显示仿真过程中的无人机分布和飞行轨迹。
-            # self.visualizer.run_visualization()
-
-
             def simulation_process():
+                # 启动可视化过程，开始显示仿真过程中的无人机分布和飞行轨迹。
+                self.visualizer.run_visualization()
                 # 运行仿真，直到达到配置文件中指定的仿真时间（SIM_TIME）。
                 env.run(until=config.SIM_TIME)
                 # 最终化处理
@@ -348,12 +339,6 @@ class UavNetSimGUI:
         # finally:
         #     self.run_btn.config(state=tk.NORMAL)
         #     self.status_label.config(text="Completed")
-
-    def check_thread(self):
-        """检查线程状态"""
-        if self.sim_thread.is_alive():
-            self.master.after(100, self.check_thread)
-
 
 
     def print_layout(self):
@@ -634,6 +619,17 @@ class UavNetSimGUI:
         return max(0, v_min), min(v_max, config.MAP_LENGTH)
 
 
+
+
+
+
+
+
+
+
+
+
+
     # def _draw_interactive_view(self, ax):
     #     """在指定Axes上绘制无人机和链路（使用最新仿真数据）"""
     #     ax.clear()
@@ -742,7 +738,15 @@ class UavNetSimGUI:
                 self.current_frame = 0  # 循环播放
             self.master.after(100, self.animate_gif)
 
+    def update_gif_display(self, gif_path):
+        """线程安全的GIF更新方法"""
 
+        def _update():
+            self.load_gif(gif_path)
+            self.animate_gif()  # 如果需要自动播放
+
+        # 通过主线程调度
+        self.master.after(0, _update)
     # def load_gif(self, gif_path):
     #     """加载并播放GIF"""
     #     try:
