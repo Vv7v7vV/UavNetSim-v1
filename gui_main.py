@@ -62,14 +62,13 @@ class UavNetSimGUI:
         self.metrics_info = tk.Text(self.left_lower, wrap=tk.WORD, font=config.text_font)
         self.metrics_info.pack(fill=tk.BOTH, expand=True)
 
-        # ========== 中间可视化区域 ==========
+        # ================================= 中间可视化区域 ============================================
         self.vis_frame = ttk.Frame(self.main_frame)
         self.vis_frame.grid(row=0, column=1, sticky="nsew")
         self.vis_frame.rowconfigure(0, weight=1)  # 上部子图区域
         self.vis_frame.rowconfigure(1, weight=0)  # 下部GIF区域（固定高度）
         self.vis_frame.columnconfigure(0, weight=1)
 
-        # 创建3个子图（移除第四个子图）
         # 创建3个子图（使用更紧凑的布局）
         self.fig = plt.figure(figsize=(16, 10))
         self.gs = self.gs = self.fig.add_gridspec(
@@ -155,10 +154,6 @@ class UavNetSimGUI:
         self.sim_thread = None
         self.sim_running = False  # 新增仿真状态标志
 
-
-        # 添加线程安全队列
-        self.plot_queue = []
-        self.master.after(100, self.process_plot_queue)
 
         # # 添加GIF显示区域
         # self.gif_frame = ttk.Frame(self.control_panel)
@@ -275,8 +270,6 @@ class UavNetSimGUI:
         self.sim_thread = Thread(target=self.run_simulation)
         self.sim_thread.start()
 
-        # 监听仿真线程完成后再启动GIF生成
-        self.master.after(100, self.check_thread_and_start_gif)
 
     def run_simulation(self):
         """执行仿真任务"""
@@ -730,61 +723,61 @@ class UavNetSimGUI:
 
 
 
-    def process_plot_queue(self):
-        """主线程定期处理绘图队列"""
-        while self.plot_queue:
-            task = self.plot_queue.pop(0)
-            task()
-        self.master.after(100, self.process_plot_queue)
-
-    def generate_and_display_gif(self):
-        """后台生成GIF并在完成后更新界面"""
-        if self.visualizer is None:
-            print("Visualizer未初始化，无法生成GIF")
-            return
-
-        # 调用visualizer生成GIF
-        gif_path = self.visualizer.create_animations()
-
-        # 在主线程更新GUI
-        if gif_path:
-            self.master.after(0, lambda: self.display_gif(gif_path))
-
-    def display_gif(self, gif_path):
-        """在GUI中显示GIF"""
-        try:
-            gif = Image.open(gif_path)
-            frames = []
-            for frame in ImageSequence.Iterator(gif):
-                frame = frame.convert('RGBA')  # 转换为RGBA模式以支持透明度
-                photo = ImageTk.PhotoImage(frame)
-                frames.append(photo)
-
-            # 保存帧引用，防止被垃圾回收
-            self.gif_frames = frames
-            self.current_frame = 0
-
-            # 开始播放动画
-            self.animate_gif()
-        except Exception as e:
-            print(f"Error displaying GIF: {e}")
-
-    def animate_gif(self):
-        """逐帧播放GIF"""
-        if self.current_frame < len(self.gif_frames):
-            self.gif_label.config(image=self.gif_frames[self.current_frame])
-            self.current_frame += 1
-            # 每100ms更新一帧（可根据GIF实际帧率调整）
-            self.master.after(100, self.animate_gif)
-
-    def check_thread_and_start_gif(self):
-        """检查仿真线程是否完成，完成后启动GIF生成"""
-        if self.sim_thread.is_alive():
-            self.master.after(100, self.check_thread_and_start_gif)
-        else:
-            # 仿真线程完成后，启动GIF生成线程
-            self.gif_thread = Thread(target=self.generate_and_display_gif)
-            self.gif_thread.start()
+    # def process_plot_queue(self):
+    #     """主线程定期处理绘图队列"""
+    #     while self.plot_queue:
+    #         task = self.plot_queue.pop(0)
+    #         task()
+    #     self.master.after(100, self.process_plot_queue)
+    #
+    # def generate_and_display_gif(self):
+    #     """后台生成GIF并在完成后更新界面"""
+    #     if self.visualizer is None:
+    #         print("Visualizer未初始化，无法生成GIF")
+    #         return
+    #
+    #     # 调用visualizer生成GIF
+    #     gif_path = self.visualizer.create_animations()
+    #
+    #     # 在主线程更新GUI
+    #     if gif_path:
+    #         self.master.after(0, lambda: self.display_gif(gif_path))
+    #
+    # def display_gif(self, gif_path):
+    #     """在GUI中显示GIF"""
+    #     try:
+    #         gif = Image.open(gif_path)
+    #         frames = []
+    #         for frame in ImageSequence.Iterator(gif):
+    #             frame = frame.convert('RGBA')  # 转换为RGBA模式以支持透明度
+    #             photo = ImageTk.PhotoImage(frame)
+    #             frames.append(photo)
+    #
+    #         # 保存帧引用，防止被垃圾回收
+    #         self.gif_frames = frames
+    #         self.current_frame = 0
+    #
+    #         # 开始播放动画
+    #         self.animate_gif()
+    #     except Exception as e:
+    #         print(f"Error displaying GIF: {e}")
+    #
+    # def animate_gif(self):
+    #     """逐帧播放GIF"""
+    #     if self.current_frame < len(self.gif_frames):
+    #         self.gif_label.config(image=self.gif_frames[self.current_frame])
+    #         self.current_frame += 1
+    #         # 每100ms更新一帧（可根据GIF实际帧率调整）
+    #         self.master.after(100, self.animate_gif)
+    #
+    # def check_thread_and_start_gif(self):
+    #     """检查仿真线程是否完成，完成后启动GIF生成"""
+    #     if self.sim_thread.is_alive():
+    #         self.master.after(100, self.check_thread_and_start_gif)
+    #     else:
+    #         # 仿真线程完成后，启动GIF生成线程
+    #         self.gif_thread = Thread(target=self.generate_and_display_gif)
+    #         self.gif_thread.start()
 
 
 if __name__ == "__main__":
