@@ -49,6 +49,7 @@ class UavNetSimGUI:
         self.main_frame.columnconfigure(2, weight=1)
         self.main_frame.rowconfigure(0, weight=1)
 
+
         # ========== 左侧面板 ==========
         self.left_panel = ttk.Frame(self.main_frame)
         self.left_panel.grid(row=0, column=0, sticky="nsew")
@@ -58,16 +59,30 @@ class UavNetSimGUI:
         self.left_panel.columnconfigure(0, weight=1)
 
         # 左上区域（无人机参数）
+
         self.left_upper = ttk.LabelFrame(self.left_panel, text="无人机初始化参数")
+        # 初始文本提示
         self.left_upper.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.drone_info = tk.Text(self.left_upper, wrap=tk.WORD, font=config.text_font)
         self.drone_info.pack(fill=tk.BOTH, expand=True)  # 内部组件可用pack
+        self.drone_info.insert(tk.END, "运行仿真后展示无人机信息")
+        self.drone_info.config(state=tk.DISABLED)
+
+        # 预置表格控件（初始隐藏）
+        self.drone_table = None
+        self.table_vsb = None
+
 
         # 左下区域（性能指标）
         self.left_lower = ttk.LabelFrame(self.left_panel, text="实时性能指标")
         self.left_lower.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         self.metrics_info = tk.Text(self.left_lower, wrap=tk.WORD, font=config.text_font)
         self.metrics_info.pack(fill=tk.BOTH, expand=True)
+        self.metrics_info.insert(tk.END, "仿真结束后展示指标信息\n")
+        self.metrics_info.config(state=tk.DISABLED)
+
+        self.metrics_table = None
+
 
         # ================================= 中间可视化区域 ============================================
         self.vis_frame = ttk.Frame(self.main_frame)
@@ -138,7 +153,7 @@ class UavNetSimGUI:
         # GIF标签使用固定宽高比
         self.gif_label = ttk.Label(self.gif_container)
         self.gif_label.pack(fill=tk.BOTH, expand=True)
-        self.load_gif(r"E:\Data\lab\UavNetSim_v1\Initial.gif")  # 替换为实际GIF路径
+        self.load_gif(r"visualization/Initial.gif")  # 替换为实际GIF路径
 
 
         # 关键布局配置
@@ -146,6 +161,7 @@ class UavNetSimGUI:
         self.canvas.draw()
 
         # ========== 右侧面板 ==========
+
         self.right_panel = ttk.Frame(self.main_frame)
         self.right_panel.grid(row=0, column=2, sticky="nsew")
         # self.right_panel.grid_propagate(False)  # 禁止自动调整尺寸
@@ -203,6 +219,7 @@ class UavNetSimGUI:
                   )
         # 配置按钮最大尺寸和居中
         style.configure("My.TButton",
+                        font=config.button_font,
                         width=15,  # 基准宽度（字符单位）
                         anchor="center",  # 文字居中
                         padding=(10, 6),  # 内边距
@@ -248,13 +265,12 @@ class UavNetSimGUI:
         self.right_upper.rowconfigure((0, 1, 2, 3), weight=1, uniform="button_row")
         self.right_upper.columnconfigure(0, weight=1)
 
-
     def _init_default_text(self):
         """初始化左侧文本内容"""
-        # 无人机初始化数据
-        drone_data = """运行仿真后展示无人机信息"""
-        self.drone_info.insert(tk.END, drone_data)
-        self.drone_info.config(state=tk.DISABLED)
+        # # 无人机初始化数据
+        # drone_data = """运行仿真后展示无人机信息"""
+        # self.drone_info.insert(tk.END, drone_data)
+        # self.drone_info.config(state=tk.DISABLED)
 
         # 性能指标
         metrics_data = """运行仿真后展示指标信息"""
@@ -275,8 +291,9 @@ class UavNetSimGUI:
 
     def start_simulation(self):
         """启动仿真线程"""
-        # self.run_btn.config(state=tk.DISABLED)
-        # self.status_label.config(text="运行中...")
+
+        # 在主线程执行UI修改
+        self.master.after(0, self.init_drone_info_table())
 
         self.sim_running = True  # 标记仿真已启动
         # 清空信息区域
@@ -369,16 +386,18 @@ class UavNetSimGUI:
         """清空无人机信息和性能指标区域"""
 
         def _clear_drone_info():
-            self.drone_info.config(state=tk.NORMAL)
-            self.drone_info.delete(1.0, tk.END)  # 清空内容
-            # self.drone_info.insert(tk.END, "运行仿真后展示无人机信息")  # 恢复默认提示
-            self.drone_info.config(state=tk.DISABLED)
+            # self.drone_info.config(state=tk.NORMAL)
+            # self.drone_info.delete(1.0, tk.END)  # 清空内容
+            # # self.drone_info.insert(tk.END, "运行仿真后展示无人机信息")  # 恢复默认提示
+            # self.drone_info.config(state=tk.DISABLED)
+            # 销毁文本控件
+            self.drone_info.destroy()
 
-        def _clear_metrics_info():
-            self.metrics_info.config(state=tk.NORMAL)
-            self.metrics_info.delete(1.0, tk.END)
-            self.metrics_info.insert(tk.END, "仿真结束后展示指标信息\n")
-            self.metrics_info.config(state=tk.DISABLED)
+        # def _clear_metrics_info():
+        #     self.metrics_info.config(state=tk.NORMAL)
+        #     self.metrics_info.delete(1.0, tk.END)
+        #     self.metrics_info.insert(tk.END, "仿真结束后展示指标信息\n")
+        #     self.metrics_info.config(state=tk.DISABLED)
 
         def _clear_log_info():
             self.log_info.config(state=tk.NORMAL)
@@ -388,20 +407,121 @@ class UavNetSimGUI:
 
         # 确保在主线程执行
         self.master.after(0, _clear_drone_info)
-        self.master.after(0, _clear_metrics_info)
+        # self.master.after(0, _clear_metrics_info)
         self.master.after(0, _clear_log_info)
 
-    def update_drone_info(self, text):
-        """线程安全更新无人机信息区域"""
+    # def update_drone_info(self, text):
+    #     """线程安全更新无人机信息区域"""
+    #
+    #     def _update():
+    #         self.drone_info.config(state=tk.NORMAL)
+    #         # self.drone_info.delete(1.0, tk.END)  # 清空内容
+    #         self.drone_info.insert(tk.END, text + "\n")
+    #         self.drone_info.see(tk.END)
+    #         self.drone_info.config(state=tk.DISABLED)
+    #
+    #     self.master.after(0, _update)  # 确保在主线程执行
+
+    def init_drone_info_table(self):
+
+        # 添加表格样式配置
+        style = ttk.Style()
+        style.configure("Treeview.Heading",
+                        font=('黑体', config.title_font_size, 'bold'),
+                        foreground='black',
+                        background='#4A6984',
+                        padding=5,
+                        borderwidth=2,  # 增加边框宽度
+                        relief="solid")  # 添加立体效果
+
+        style.configure("Treeview",
+                        font=('宋体', config.text_font_size),
+                        rowheight=28,
+                        borderwidth=2,  # 边框宽度
+                        relief="solid",  # 立体边框
+                        highlightthickness=1,  # 高亮边框厚度
+                        fieldbackground='#F5F5F5',  # 单元格背景色
+                        foreground='#333333',  # 文字颜色
+                        bordercolor = "#999999",  # 明确定义边框颜色
+                        lightcolor = "#CCCCCC",  # 定义亮边颜色
+                        darkcolor = "#999999")  # 定义暗边颜色
+        # 添加单元格边框配置
+        style.element_create("Treeview.cell.border", "from", "default")
+        style.layout("Treeview.Item", [
+            ("Treeview.cell.border", {"sticky": "nswe", "children": [
+                ("Treeview.padding", {"sticky": "nswe", "children": [
+                    ("Treeview.image", {"sticky": "nswe"}),
+                    ("Treeview.text", {"sticky": "nswe"})
+                ]})
+            ]})
+        ])
+
+        style.map("Treeview",
+                background=[('selected', '#3C6E9F')],  # 选中行背景色
+                foreground=[('selected', 'white')])  # 选中行文字颜色        
+        
+        # 创建表格
+        self.drone_table = ttk.Treeview(self.left_upper,
+                                        show='headings',
+                                        columns=('id', 'x', 'y', 'z', 'speed'),
+                                        height=20,
+                                        style="Treeview")
+
+        # 配置列
+        columns = [
+            ('id', '无人机ID', 100),
+            ('x', 'X坐标', 50),
+            ('y', 'Y坐标', 50),
+            ('z', 'Z坐标', 50),
+            ('speed', '速度', 100)
+        ]
+
+        # 添加列样式
+        for col_id, col_text, width in columns:
+            self.drone_table.column(col_id,
+                                    width=width,
+                                    anchor='center')
+            self.drone_table.heading(col_id, text=col_text)  # 关键添加
+            # 添加列分隔线
+            style.configure("Treeview", 
+                bordercolor="#CCCCCC",  # 边框颜色
+                lightcolor="#CCCCCC",   # 亮边颜色
+                darkcolor="#999999"    # 暗边颜色
+            )
+
+
+        # 添加滚动条
+        self.table_vsb = ttk.Scrollbar(self.left_upper,
+                                       orient="vertical",
+                                       command=self.drone_table.yview)
+        self.drone_table.configure(yscrollcommand=self.table_vsb.set)
+
+        # 布局
+        self.drone_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.table_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def update_drone_info(self, drone_data_list):
+        """更新无人机表格数据"""
 
         def _update():
-            self.drone_info.config(state=tk.NORMAL)
-            # self.drone_info.delete(1.0, tk.END)  # 清空内容
-            self.drone_info.insert(tk.END, text + "\n")
-            self.drone_info.see(tk.END)
-            self.drone_info.config(state=tk.DISABLED)
+            # 清空现有数据
+            for item in self.drone_table.get_children():
+                self.drone_table.delete(item)
+            # print(f"[调试] 收到无人机数据：{len(drone_data_list)}条")
 
-        self.master.after(0, _update)  # 确保在主线程执行
+            # 插入新数据
+            for drone in drone_data_list:
+                self.drone_table.insert('', 'end', values=(
+                    drone['id'],
+                    f"{drone['x']:.1f}",
+                    f"{drone['y']:.1f}",
+                    f"{drone['z']:.1f}",
+                    drone['speed']
+                ))
+
+        # 确保在主线程更新
+        self.master.after(0, _update)
+
 
     def update_progress_log(self, message):
         """在同一行更新仿真进度（覆盖前一条）"""
@@ -477,6 +597,57 @@ class UavNetSimGUI:
 
         # 确保在主线程执行
         self.master.after(0, _update)
+
+    def init_metrics_table(self):
+        """初始化固定行列的性能指标表格"""
+        style = ttk.Style()
+
+        # 创建指标表格
+        self.metrics_table = ttk.Treeview(self.left_lower,
+                                          show='headings',
+                                          columns=('metric', 'value', 'unit'),
+                                          height=7,
+                                          style="Treeview")
+
+        # 配置列（固定三列）
+        metrics_columns = [
+            ('metric', '性能指标', 120),
+            ('value', '实时数值', 100),
+            ('unit', '单位', 60)
+        ]
+
+        for col_id, col_text, width in metrics_columns:
+            self.metrics_table.column(col_id,
+                                      width=width,
+                                      anchor='center',
+                                      stretch=False)
+            self.metrics_table.heading(col_id, text=col_text)
+
+        # 插入固定行数据（与无人机表格风格一致）
+        metric_items = [
+            ('数据包投递率(PDR)', '', '%'),
+            ('平均端到端延迟', '', 'ms'),
+            ('路由负载(RL)', '', ''),
+            ('平均吞吐量', '', 'Kbps'),
+            ('平均跳数', '', ''),
+            ('冲突次数', '', '次'),
+            ('平均MAC延迟', '', 'ms')
+        ]
+
+        for item in metric_items:
+            self.metrics_table.insert('', 'end', values=item)
+
+        # 添加滚动条
+        metrics_vsb = ttk.Scrollbar(self.left_lower, orient="vertical", command=self.metrics_table.yview)
+        self.metrics_table.configure(yscrollcommand=metrics_vsb.set)
+
+        # 布局
+        self.metrics_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        metrics_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 销毁原有文本控件
+        if hasattr(self, 'metrics_info'):
+            self.metrics_info.destroy()
 
     def update_metrics_info(self, metrics):
         """更新性能指标区域"""

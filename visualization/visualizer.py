@@ -237,7 +237,7 @@ class SimulationVisualizer:
             self.master.gui_instance.log(f"正在生成{n_frames}帧动画，\n  时间间隔：{frame_interval_sec}秒")
 
             for i, time_point in enumerate(self.frame_times):
-                # TODO
+
                 # print(f"生成进度：第{i + 1}/{n_frames}帧", end="\r")
                 self.master.gui_instance.update_generation_progress(i, n_frames)
 

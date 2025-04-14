@@ -60,7 +60,27 @@ class Simulator:
         # 生成无人机的初始位置。
         start_position = start_coords.get_random_start_point_3d(seed)
 
+        # self.drones = []
+        # for i in range(n_drones):
+        #     # 在异构网络中，不同无人机可以有不同的速度（默认不支持）
+        #     if config.HETEROGENEOUS:
+        #         speed = random.randint(5, 60)
+        #     else:
+        #         speed = 10
+        #
+        #     info = (
+        #         f'无人机: {i}, '
+        #         f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}), '
+        #         f'速度: {speed}'
+        #     )
+        #     if self.gui_canvas:
+        #         if self.update_drone_callback:
+        #             self.update_drone_callback(info)
+        #     else:
+        #         print(info)  # 非GUI模式直接输出到控制台
+
         self.drones = []
+        drone_data_list = []
         for i in range(n_drones):
             # 在异构网络中，不同无人机可以有不同的速度（默认不支持）
             if config.HETEROGENEOUS:
@@ -68,23 +88,30 @@ class Simulator:
             else:
                 speed = 10
 
-            info = (
-                f'无人机: {i}, '
-                f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}), '
-                f'速度: {speed}'
-            )
-            if self.gui_canvas:
-                if self.update_drone_callback:
-                    self.update_drone_callback(info)
+            drone_data = {
+                'id': i,
+                'x': start_position[i][0],
+                'y': start_position[i][1],
+                'z': start_position[i][2],
+                'speed': speed
+            }
+            drone_data_list.append(drone_data)
+            if not self.gui_canvas:
+                info = (
+                    f'无人机: {i}, '
+                    f'初始位置: ({start_position[i][0]:.1f}, {start_position[i][1]:.1f}, {start_position[i][2]:.1f}), '
+                    f'速度: {speed}'
+                )
+                print(info)
             else:
-                print(info)  # 非GUI模式直接输出到控制台
+                # if self.update_drone_callback:
+                self.update_drone_callback(drone_data_list)
+            # print(f"[调试] 生成无人机数据：{drone_data_list}")
 
             drone = Drone(env=env, node_id=i, coords=start_position[i], speed=speed,
                           inbox=self.channel.create_inbox_for_receiver(i), simulator=self)
             self.drones.append(drone)
 
-        # scatter_plot(self)
-        # scatter_plot(simulator, gui_canvas=self.canvas)  # 通过主线程调用
 
         # 1图pic
         if gui_canvas:
