@@ -82,6 +82,7 @@ class UavNetSimGUI:
         self.metrics_info.config(state=tk.DISABLED)
 
         self.metrics_table = None
+        self.table_vsb2 = None
 
 
         # ================================= 中间可视化区域 ============================================
@@ -273,9 +274,9 @@ class UavNetSimGUI:
         # self.drone_info.config(state=tk.DISABLED)
 
         # 性能指标
-        metrics_data = """运行仿真后展示指标信息"""
-        self.metrics_info.insert(tk.END, metrics_data)
-        self.metrics_info.config(state=tk.DISABLED)
+        # metrics_data = """运行仿真后展示指标信息"""
+        # self.metrics_info.insert(tk.END, metrics_data)
+        # self.metrics_info.config(state=tk.DISABLED)
 
         # 初始化日志
         self.log("系统初始化完成")
@@ -292,12 +293,13 @@ class UavNetSimGUI:
     def start_simulation(self):
         """启动仿真线程"""
 
-        # 在主线程执行UI修改
-        self.master.after(0, self.init_drone_info_table())
-
-        self.sim_running = True  # 标记仿真已启动
         # 清空信息区域
         self.clear_info_areas()
+        # 在主线程执行UI修改
+        self.master.after(0, self.init_drone_info_table())
+        # self.master.after(0, self.init_metrics_table())
+
+        self.sim_running = True  # 标记仿真已启动
 
         # 启动仿真线程（确保先初始化visualizer）
         self.sim_thread = Thread(target=self.run_simulation)
@@ -321,6 +323,7 @@ class UavNetSimGUI:
                 update_progress_callback = self.update_progress_log,  # 传递log仿真进度回调
                 update_metrics_callback=self.update_metrics_info,     # 新增回调
                 gui_canvas = self.canvas,  # 传递 Tkinter Canvas
+                master=self.master,  # <-- 关键点
                 axs= self.axs       # 传递图像对象
             )
             # 配置可视化器
@@ -390,14 +393,22 @@ class UavNetSimGUI:
             # self.drone_info.delete(1.0, tk.END)  # 清空内容
             # # self.drone_info.insert(tk.END, "运行仿真后展示无人机信息")  # 恢复默认提示
             # self.drone_info.config(state=tk.DISABLED)
+
+            # 销毁表格相关控件
+            # if hasattr(self, 'drone_table'):
+            #     self.drone_table = None
+            # if hasattr(self, 'table_vsb'):
+            #     self.table_vsb2.destroy()
             # 销毁文本控件
             self.drone_info.destroy()
 
-        # def _clear_metrics_info():
-        #     self.metrics_info.config(state=tk.NORMAL)
-        #     self.metrics_info.delete(1.0, tk.END)
-        #     self.metrics_info.insert(tk.END, "仿真结束后展示指标信息\n")
-        #     self.metrics_info.config(state=tk.DISABLED)
+        def _clear_metrics_info():
+            # 销毁表格相关控件
+            self.metrics_info.destroy()
+            # if hasattr(self, 'metrics_table'):
+            #     self.metrics_table.destroy()
+            # if hasattr(self, 'table_vsb2'):
+            #     self.table_vsb2.destroy()
 
         def _clear_log_info():
             self.log_info.config(state=tk.NORMAL)
@@ -445,16 +456,16 @@ class UavNetSimGUI:
                         bordercolor = "#999999",  # 明确定义边框颜色
                         lightcolor = "#CCCCCC",  # 定义亮边颜色
                         darkcolor = "#999999")  # 定义暗边颜色
-        # 添加单元格边框配置
-        style.element_create("Treeview.cell.border", "from", "default")
-        style.layout("Treeview.Item", [
-            ("Treeview.cell.border", {"sticky": "nswe", "children": [
-                ("Treeview.padding", {"sticky": "nswe", "children": [
-                    ("Treeview.image", {"sticky": "nswe"}),
-                    ("Treeview.text", {"sticky": "nswe"})
-                ]})
-            ]})
-        ])
+        # # 添加单元格边框配置
+        # style.element_create("Treeview.cell.border", "from", "default")
+        # style.layout("Treeview.Item", [
+        #     ("Treeview.cell.border", {"sticky": "nswe", "children": [
+        #         ("Treeview.padding", {"sticky": "nswe", "children": [
+        #             ("Treeview.image", {"sticky": "nswe"}),
+        #             ("Treeview.text", {"sticky": "nswe"})
+        #         ]})
+        #     ]})
+        # ])
 
         style.map("Treeview",
                 background=[('selected', '#3C6E9F')],  # 选中行背景色
@@ -602,27 +613,65 @@ class UavNetSimGUI:
         """初始化固定行列的性能指标表格"""
         style = ttk.Style()
 
+        style.configure("Treeview.Heading",
+                        font=('黑体', config.title_font_size, 'bold'),
+                        foreground='black',
+                        background='#4A6984',
+                        padding=5,
+                        borderwidth=2,  # 增加边框宽度
+                        relief="solid")  # 添加立体效果
+
+        style.configure("Treeview",
+                        font=('宋体', config.text_font_size),
+                        rowheight=28,
+                        borderwidth=2,  # 边框宽度
+                        relief="solid",  # 立体边框
+                        highlightthickness=1,  # 高亮边框厚度
+                        fieldbackground='#F5F5F5',  # 单元格背景色
+                        foreground='#333333',  # 文字颜色
+                        bordercolor = "#999999",  # 明确定义边框颜色
+                        lightcolor = "#CCCCCC",  # 定义亮边颜色
+                        darkcolor = "#999999")  # 定义暗边颜色
+
+        # # 添加单元格边框配置
+        # style.element_create("Treeview.cell.border", "from", "default")
+        # style.layout("Treeview.Item", [
+        #     ("Treeview.cell.border", {"sticky": "nswe", "children": [
+        #         ("Treeview.padding", {"sticky": "nswe", "children": [
+        #             ("Treeview.image", {"sticky": "nswe"}),
+        #             ("Treeview.text", {"sticky": "nswe"})
+        #         ]})
+        #     ]})
+        # ])
+
+        style.map("Treeview",
+                background=[('selected', '#3C6E9F')],  # 选中行背景色
+                foreground=[('selected', 'white')])  # 选中行文字颜色
         # 创建指标表格
         self.metrics_table = ttk.Treeview(self.left_lower,
-                                          show='headings',
-                                          columns=('metric', 'value', 'unit'),
-                                          height=7,
-                                          style="Treeview")
+                                        show='headings',
+                                        columns=('metric', 'value', 'unit'),
+                                        height=20,
+                                        style="Treeview")
 
         # 配置列（固定三列）
-        metrics_columns = [
+        columns = [
             ('metric', '性能指标', 120),
             ('value', '实时数值', 100),
             ('unit', '单位', 60)
         ]
 
-        for col_id, col_text, width in metrics_columns:
+        for col_id, col_text, width in columns:
             self.metrics_table.column(col_id,
                                       width=width,
-                                      anchor='center',
-                                      stretch=False)
+                                      anchor='center')
             self.metrics_table.heading(col_id, text=col_text)
-
+            # 添加列分隔线
+            style.configure("Treeview",
+                            bordercolor="#CCCCCC",  # 边框颜色
+                            lightcolor="#CCCCCC",  # 亮边颜色
+                            darkcolor="#999999"  # 暗边颜色
+                            )
         # 插入固定行数据（与无人机表格风格一致）
         metric_items = [
             ('数据包投递率(PDR)', '', '%'),
@@ -638,35 +687,58 @@ class UavNetSimGUI:
             self.metrics_table.insert('', 'end', values=item)
 
         # 添加滚动条
-        metrics_vsb = ttk.Scrollbar(self.left_lower, orient="vertical", command=self.metrics_table.yview)
-        self.metrics_table.configure(yscrollcommand=metrics_vsb.set)
+        self.table_vsb2 = ttk.Scrollbar(self.left_lower,
+                                       orient="vertical",
+                                       command=self.drone_table.yview)
+        self.metrics_table.configure(yscrollcommand=self.table_vsb2.set)
 
         # 布局
         self.metrics_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        metrics_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.table_vsb2.pack(side=tk.RIGHT, fill=tk.Y)
 
         # 销毁原有文本控件
-        if hasattr(self, 'metrics_info'):
-            self.metrics_info.destroy()
 
     def update_metrics_info(self, metrics):
-        """更新性能指标区域"""
+        """更新指标表格数据"""
 
         def _update():
-            text = (f"数据包投递率(PDR): {metrics['pdr']:.2f}%\n"
-                    f"平均端到端延迟(E2E): {metrics['e2e']:.2f} ms\n"
-                    f"路由负载(RL): {metrics['rl']:.2f}\n"
-                    f"平均吞吐量: {metrics['throughput']:.2f} Kbps\n"
-                    f"平均跳数: {metrics['hop']:.2f}\n"
-                    f"冲突次数: {metrics['collision']}\n"
-                    f"平均MAC延迟: {metrics['mac_delay']:.2f} ms\n")
+            # 映射指标名称到表格行号
+            metric_map = {
+                'pdr': 0,
+                'e2e': 1,
+                'rl': 2,
+                'throughput': 3,
+                'hop': 4,
+                'collision': 5,
+                'mac_delay': 6
+            }
 
-            self.metrics_info.config(state=tk.NORMAL)
-            self.metrics_info.delete(1.0, tk.END)
-            self.metrics_info.insert(tk.END, text)
-            self.metrics_info.config(state=tk.DISABLED)
+            # 更新表格数据
+            for metric_key, row_idx in metric_map.items():
+                value = metrics.get(metric_key, 0)
+                formatted_value = f"{value:.2f}" if isinstance(value, float) else str(value)
+                self.metrics_table.set(self.metrics_table.get_children()[row_idx], 'value', formatted_value)
 
         self.master.after(0, _update)
+
+    # def update_metrics_info(self, metrics):
+    #     """更新性能指标区域"""
+    #
+    #     def _update():
+    #         text = (f"数据包投递率(PDR): {metrics['pdr']:.2f}%\n"
+    #                 f"平均端到端延迟(E2E): {metrics['e2e']:.2f} ms\n"
+    #                 f"路由负载(RL): {metrics['rl']:.2f}\n"
+    #                 f"平均吞吐量: {metrics['throughput']:.2f} Kbps\n"
+    #                 f"平均跳数: {metrics['hop']:.2f}\n"
+    #                 f"冲突次数: {metrics['collision']}\n"
+    #                 f"平均MAC延迟: {metrics['mac_delay']:.2f} ms\n")
+    #
+    #         self.metrics_info.config(state=tk.NORMAL)
+    #         self.metrics_info.delete(1.0, tk.END)
+    #         self.metrics_info.insert(tk.END, text)
+    #         self.metrics_info.config(state=tk.DISABLED)
+    #
+    #     self.master.after(0, _update)
 
     def on_canvas_click(self, event):
         """点击Canvas时判断具体子图"""

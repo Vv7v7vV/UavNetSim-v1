@@ -36,6 +36,7 @@ class Simulator:
                  update_progress_callback=None,  # 新增进度回调
                  update_metrics_callback = None,  # 指标更新回调函数
                  axs=None,
+                 master=None,
                  gui_canvas=None):
 
         self.env = env
@@ -56,7 +57,7 @@ class Simulator:
         self.update_drone_callback = update_drone_callback
         self.update_progress_callback = update_progress_callback
         self.update_metrics_callback = update_metrics_callback      # 指标更新回调函数
-
+        self.master = master  # 保存主窗口引用
         # 生成无人机的初始位置。
         start_position = start_coords.get_random_start_point_3d(seed)
 
@@ -167,6 +168,10 @@ class Simulator:
 
         # GUI模式使用回调，非GUI模式直接打印
         if self.gui_canvas:
+            # print("this")
+            # 初始化表格
+            self.master.gui_instance.master.after(0, self.master.gui_instance.metrics_info.destroy())
+            self.master.gui_instance.master.after(0, self.master.gui_instance.init_metrics_table())
             self.update_metrics_callback(metrics_data)
         else:
             self.metrics.print_metrics()
