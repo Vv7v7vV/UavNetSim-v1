@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageTk, ImageSequence
 from matplotlib.collections import PathCollection
 from mpl_toolkits.mplot3d.art3d import Line3D
+from gui.input_dialog import InputDialog
 
 
 
@@ -230,7 +231,7 @@ class UavNetSimGUI:
 
         buttons = [
             ("开始仿真", self.start_simulation, "My.TButton"),
-            ("修改参数", lambda: self.log("功能待实现"), "My.TButton"),
+            ("修改参数", self.show_input_dialog, "My.TButton"),
             ("选择模型", lambda: self.log("功能待实现"), "My.TButton"),
             ("查看日志", lambda: self.log("日志功能待实现"), "My.TButton")
         ]
@@ -265,6 +266,11 @@ class UavNetSimGUI:
         # 配置行和列的权重
         self.right_upper.rowconfigure((0, 1, 2, 3), weight=1, uniform="button_row")
         self.right_upper.columnconfigure(0, weight=1)
+
+    def show_input_dialog(self):
+        """显示参数配置对话框"""
+        dialog = InputDialog(parent=self.master, gui_instance=self)  # 同时传递两个参数
+        dialog.grab_set()
 
     def _init_default_text(self):
         """初始化左侧文本内容"""
@@ -679,7 +685,7 @@ class UavNetSimGUI:
             ('平均端到端延迟', '', 'ms'),
             ('路由负载(RL)', '', ''),
             ('平均吞吐量', '', 'Kbps'),
-            ('平均跳数', '', ''),
+            ('平均跳数', '', '跳'),
             ('冲突次数', '', '次'),
             ('平均MAC延迟', '', 'ms')
         ]
@@ -894,17 +900,6 @@ class UavNetSimGUI:
             v_max += margin
 
         return max(0, v_min), min(v_max, config.MAP_LENGTH)
-
-
-
-
-
-
-
-
-
-
-
 
 
     # def _draw_interactive_view(self, ax):
