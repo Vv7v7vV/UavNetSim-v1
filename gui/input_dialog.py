@@ -54,6 +54,7 @@ class InputDialog(tk.Toplevel):
             row=2, column=1, sticky="ew", pady=entry_pady, padx=10)
 
 
+
         ttk.Label(main_frame, text="无人机速度模式:").grid(
             row=3, column=0, sticky="w", pady=label_pady)
         self.speed_mode = ttk.Entry(main_frame)
