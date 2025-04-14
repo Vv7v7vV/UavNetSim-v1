@@ -87,7 +87,7 @@ class Simulator:
             if config.HETEROGENEOUS:
                 speed = random.randint(5, 60)
             else:
-                speed = 10
+                speed = config.BASE_SPEED
 
             drone_data = {
                 'id': i,

@@ -12,6 +12,7 @@ fig_font_size = 20
 title_font = ('黑体', title_font_size)
 button_font = ('黑体', title_font_size)
 text_font = ('宋体', text_font_size)
+small_font = ('宋体', 20)
 
 row_height = 40
 
@@ -25,6 +26,7 @@ SIM_TIME = 2 * 1e6  # us, total simulation time
 NUMBER_OF_DRONES = 15  # number of drones in the network
 STATIC_CASE = 0  # whether to simulate a static network
 HETEROGENEOUS = 0  # 是否支持异构网络（在速度方面），0表示不支持
+BASE_SPEED = 10  # 统一速度基准值
 LOGGING_LEVEL = logging.INFO  # whether to print the detail information during simulation
 
 # ---------- hardware parameters of drone (rotary-wing) -----------#
