@@ -76,15 +76,15 @@ class InputDialog(tk.Toplevel):
         # 立即初始化显示状态
         self._update_speed_input()  # 关键修复：初始化时触发一次更新
 
-        # 同构网络速度输入框
-        self.speed_label = ttk.Label(self.speed_input_frame, text="统一速度:",font=config.small_font)
-        self.speed_entry = ttk.Entry(self.speed_input_frame)
+        # # 同构网络速度输入框
+        # self.speed_label = ttk.Label(self.speed_input_frame, text="统一速度:",font=config.small_font)
+        # self.speed_entry = ttk.Entry(self.speed_input_frame)
 
         # 异构网络提示文字
-        self.random_label = ttk.Label(self.speed_input_frame,
-                                      text="速度将随机分配",
-                                      foreground="gray",
-                                      font=config.small_font)
+        # self.random_label = ttk.Label(self.speed_input_frame,
+        #                               text="速度将随机分配",
+        #                               foreground="gray",
+        #                               font=config.small_font)
 
 
 
