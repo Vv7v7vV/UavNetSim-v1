@@ -12,6 +12,9 @@ fig_font_size = 20
 title_font = ('黑体', title_font_size)
 button_font = ('黑体', title_font_size)
 text_font = ('宋体', text_font_size)
+
+row_height = 40
+
 chosen_drone = 1
 
 # --------------------- simulation parameters --------------------- #

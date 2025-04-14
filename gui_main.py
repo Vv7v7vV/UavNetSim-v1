@@ -447,7 +447,7 @@ class UavNetSimGUI:
 
         style.configure("Treeview",
                         font=('宋体', config.text_font_size),
-                        rowheight=28,
+                        rowheight=config.row_height,
                         borderwidth=2,  # 边框宽度
                         relief="solid",  # 立体边框
                         highlightthickness=1,  # 高亮边框厚度
@@ -609,6 +609,7 @@ class UavNetSimGUI:
         # 确保在主线程执行
         self.master.after(0, _update)
 
+
     def init_metrics_table(self):
         """初始化固定行列的性能指标表格"""
         style = ttk.Style()
@@ -623,7 +624,7 @@ class UavNetSimGUI:
 
         style.configure("Treeview",
                         font=('宋体', config.text_font_size),
-                        rowheight=28,
+                        rowheight=config.row_height,
                         borderwidth=2,  # 边框宽度
                         relief="solid",  # 立体边框
                         highlightthickness=1,  # 高亮边框厚度
