@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 import tkinter as tk
 from sys import maxsize
 from tkinter import ttk, messagebox
@@ -233,7 +236,7 @@ class UavNetSimGUI:
             ("开始仿真", self.start_simulation, "My.TButton"),
             ("修改参数", self.show_input_dialog, "My.TButton"),
             ("选择模型", lambda: self.log("功能待实现"), "My.TButton"),
-            ("查看日志", lambda: self.log("日志功能待实现"), "My.TButton")
+            ("查看日志", self.open_log_file, "My.TButton")
         ]
         # 添加尺寸约束配置
         style.configure("My.TButton", 
@@ -271,6 +274,25 @@ class UavNetSimGUI:
         """显示参数配置对话框"""
         dialog = InputDialog(parent=self.master, gui_instance=self)  # 同时传递两个参数
         dialog.grab_set()
+
+    def open_log_file(self):
+        """打开日志文件"""
+        log_path = r"E:\Data\lab\UavNetSim_v1\running_log.log"
+
+        try:
+            # Windows系统直接调用默认程序打开
+            if os.name == 'nt':
+                os.startfile(log_path)
+            # 其他系统使用subprocess打开
+            else:
+                opener = 'open' if sys.platform == 'darwin' else 'xdg-open'
+                subprocess.call([opener, log_path])
+
+            self.log(f"已打开日志文件：\n{log_path}")
+        except Exception as e:
+            error_msg = f"打开日志失败：{str(e)}"
+            messagebox.showerror("文件错误", error_msg)
+            self.log(error_msg)
 
     def _init_default_text(self):
         """初始化左侧文本内容"""
