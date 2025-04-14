@@ -54,14 +54,16 @@ class InputDialog(tk.Toplevel):
             row=2, column=1, sticky="ew", pady=entry_pady, padx=10)
 
 
-        # ttk.Label(main_frame, text="无人机速度模式:").grid(row=3, column=0, sticky="w", pady=5)
-        # self.selected_drones = ttk.Entry(main_frame)
-        # self.selected_drones.insert(0, ",".join(map(str, config.HETEROGENEOUS)))
-        # self.selected_drones.grid(row=3, column=1, sticky="ew", pady=5)
+        ttk.Label(main_frame, text="无人机速度模式:").grid(
+            row=3, column=0, sticky="w", pady=label_pady)
+        self.speed_mode = ttk.Entry(main_frame)
+        self.speed_mode.insert(0, str(config.HETEROGENEOUS))
+        self.speed_mode.grid(
+            row=3, column=1, sticky="ew", pady=entry_pady, padx=10)
 
         # 按钮区域
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.grid(row=3, column=0, columnspan=2, pady=15)
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=15)
 
         ttk.Button(btn_frame, text="确认", command=self._validate_input).pack(side=tk.LEFT, padx=10)
         ttk.Button(btn_frame, text="取消", command=self.destroy).pack(side=tk.RIGHT, padx=10)
